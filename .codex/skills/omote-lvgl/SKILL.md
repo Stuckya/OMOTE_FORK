@@ -35,3 +35,5 @@ Treat Omote as a version-pinned LVGL 8.3 firmware with its own GUI lifecycle. Do
 ## Verification
 
 Prefer the simulator for GUI iteration when available: `pio run -e linux_64bit` or the platform-specific simulator environment. For firmware-sensitive HAL or memory changes, also build the relevant ESP32 environment such as `esp32-Rev1toRev4` or `esp32-s3-Rev5andHigher`.
+
+To see the rendered UI and inspect the live object tree (positions, state, text) instead of reasoning about it blind, use the companion `lvgl-sim-inspect` skill — it screenshots the simulator and dumps a DOM-like tree of the active screen.

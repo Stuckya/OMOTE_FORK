@@ -15,6 +15,10 @@ artifacts that together act like a browser's element inspector for LVGL:
 The point of the skill is to get those two files and then **read both** — the
 PNG tells you how it looks, the tree tells you exactly what's there and where.
 
+For how to *write* correct LVGL 8.3 code in this repo — GUI lifecycle, tab
+patterns, cross-thread rules, version guardrails — see the companion
+`omote-lvgl` skill. This skill is the verify half of that build-and-check loop.
+
 ## How to run it
 
 Always go through the helper script. It exists for one reason that matters: the

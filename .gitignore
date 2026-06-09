@@ -15,3 +15,5 @@ src/secrets_override.h
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/lvgl-sim-inspect/
+# Symlink to the omote-lvgl knowledge skill whose source lives in .codex/.
+!.claude/skills/omote-lvgl
