@@ -9,4 +9,9 @@ src/secrets_override.h
 **/.DS_Store
 .gitnexus
 .agents/
-.claude/
+.claude/*
+# Ship the simulator inspector skill, but keep the rest of .claude (and the
+# skill's local eval workspace) out of the repo.
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/lvgl-sim-inspect/

@@ -6,6 +6,7 @@
 #include "SDL2/SDL_events.h"
 
 #include "keypad_gui/keypad_gui.h"
+#include "lvgl_inspect_windows_linux.h"
 
 /**
  * A task to measure the elapsed time for LittlevGL
@@ -111,4 +112,6 @@ void init_lvgl_HAL() {
    * You have to call 'lv_tick_inc()' in periodically to inform lvgl about how much time were elapsed
    * Create an SDL thread to do this*/
   SDL_CreateThread(tick_thread, "tick", NULL);
+
+  lvgl_inspect_init();
 }
