@@ -7,6 +7,7 @@
 #include "applicationInternal/gui/components/modalShell.h"
 #include "applicationInternal/gui/components/pinSegments.h"
 #include "applicationInternal/gui/components/resultCard.h"
+#include "applicationInternal/gui/guiBase.h"
 #include "applicationInternal/gui/guiTheme.h"
 #include "applicationInternal/hub/pairingManager.h"
 
@@ -22,6 +23,23 @@ std::string submitted_code;
 std::string device_name;
 uint32_t expected_len = 4;
 bool requires_pin = true;
+
+void destroy_overlay() {
+  if (overlay == nullptr) return;
+  lv_obj_del(overlay);
+  overlay = nullptr;
+  segments = nullptr;
+  submit_btn = nullptr;
+  submit_label = nullptr;
+}
+
+// Each pairing screen frees the tab tree underneath (idempotent — only the
+// first screen actually tears it down) and replaces the previous overlay. The
+// tree is rebuilt once in gui_pairing_hide() when pairing ends.
+void begin_screen() {
+  guis_suspendActiveTabs();
+  destroy_overlay();
+}
 
 void render() {
   pinSegments_render(segments, pin_buffer);
@@ -119,7 +137,7 @@ void gui_pairing_show_awaiting(const std::string &deviceName,
                                const std::string &message,
                                uint32_t expectedPinLength, bool requiresPin) {
   LV_UNUSED(message);
-  gui_pairing_hide();
+  begin_screen();
   device_name = deviceName;
   expected_len = expectedPinLength > 0 ? expectedPinLength : 4;
   requires_pin = requiresPin;
@@ -133,7 +151,7 @@ void gui_pairing_show_awaiting(const std::string &deviceName,
 }
 
 void gui_pairing_show_verifying() {
-  gui_pairing_hide();
+  begin_screen();
   overlay = modalShell_create(device_name, "", nullptr);
 
   lv_obj_t *core = lv_obj_create(overlay);
@@ -186,7 +204,7 @@ void gui_pairing_show_verifying() {
 
 void gui_pairing_show_success(const std::string &deviceName) {
   device_name = deviceName;
-  gui_pairing_hide();
+  begin_screen();
   overlay = modalShell_create(device_name, "", nullptr);
   resultCard_create(overlay, ResultKind::kSuccess, "Paired",
                     device_name + " is ready to control.");
@@ -194,7 +212,7 @@ void gui_pairing_show_success(const std::string &deviceName) {
 }
 
 void gui_pairing_show_failed(const std::string &message) {
-  gui_pairing_hide();
+  begin_screen();
   overlay = modalShell_create(device_name, "", nullptr);
   resultCard_create(overlay, ResultKind::kFailed, "Incorrect code", message);
   GuiTheme::primaryButton(overlay, "Try Again", GuiTheme::kBlue, retry_cb);
@@ -202,12 +220,7 @@ void gui_pairing_show_failed(const std::string &message) {
 }
 
 void gui_pairing_hide() {
-  if (overlay != nullptr) {
-    lv_obj_del(overlay);
-    overlay = nullptr;
-    segments = nullptr;
-    submit_btn = nullptr;
-    submit_label = nullptr;
-  }
+  destroy_overlay();
   pin_buffer.clear();
+  guis_resumeActiveTabs();
 }

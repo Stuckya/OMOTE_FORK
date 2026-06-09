@@ -41,6 +41,9 @@ void pageIndicator_navigate_event_cb(lv_event_t* e);
 void guis_doTabCreationAfterGUIlistChanged(GUIlists newGUIlist);
 void guis_doTabCreationForSpecificGUI(GUIlists GUIlist, int gui_list_index);
 void guis_doTabCreationForNavigateToLastActiveGUIofPreviousGUIlist();
+// used by gui_pairing.cpp to free the tab tree while the pairing overlay is up
+void guis_suspendActiveTabs();
+void guis_resumeActiveTabs();
 // used by guiMemoryOptimizer.cpp and sceneHandler.cpp
 void setActiveTab(uint32_t index, lv_anim_enable_t anim_en, bool send_tab_changed_event = false);
 // used by memoryUsage.cpp
