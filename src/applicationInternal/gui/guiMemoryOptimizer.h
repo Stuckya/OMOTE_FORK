@@ -21,6 +21,9 @@ void gui_memoryOptimizer_navigateToLastActiveGUIofPreviousGUIlist(lv_obj_t** tab
 // notifyAndClear/navigateToGUI paths so no parallel teardown logic is needed.
 void gui_memoryOptimizer_suspendActiveTabs(lv_obj_t** tabview, lv_obj_t** panel, lv_obj_t** img1, lv_obj_t** img2);
 void gui_memoryOptimizer_resumeActiveTabs(lv_obj_t** tabview, lv_obj_t** panel, lv_obj_t** img1, lv_obj_t** img2);
+// true while a full-screen overlay has torn the tab tree down; tab (re)creation
+// must be suppressed so a stray nav does not rebuild the tabview under the overlay
+bool gui_memoryOptimizer_tabsSuspended();
 
 int gui_memoryOptimizer_getActiveTabID();
 bool gui_memoryOptimizer_isTabIDInMemory(int tabID);

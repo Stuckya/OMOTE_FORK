@@ -745,6 +745,10 @@ void gui_memoryOptimizer_resumeActiveTabs(lv_obj_t** tabview, lv_obj_t** panel, 
   gui_memoryOptimizer_navigateToGUI(tabview, panel, img1, img2, suspended_gui.gui_list, suspended_gui.gui_list_index);
 }
 
+bool gui_memoryOptimizer_tabsSuspended() {
+  return suspended_gui.active;
+}
+
 
 void gui_memoryOptimizer_doContentCreation(lv_obj_t** tabview, lv_obj_t** panel, lv_obj_t** img1, lv_obj_t** img2, t_gui_state *gui_state) {
   // recreate the tabview

@@ -346,18 +346,32 @@ void guis_doTabCreationAfterSliding(int newTabID) {
   gui_memoryOptimizer_afterSliding(&tabview, &panel, &img1, &img2, newTabID);
   doLogMemoryUsage();
 }
+// User-driven tab navigation must not rebuild the tabview while a full-screen
+// overlay (e.g. pairing) owns the screen: the new tabs would appear under the
+// overlay and undo the memory it freed. Resume goes through the optimizer
+// directly, so it is unaffected. Startup and post-slide creation are never
+// reachable while suspended (no tabview to swipe), so only these user-nav
+// entry points are gated.
+static bool tabCreationBlockedByOverlay(const char* what) {
+  if (!gui_memoryOptimizer_tabsSuspended()) return false;
+  omote_log_d("%s: ignored, tabs suspended for full-screen overlay\r\n", what);
+  return true;
+}
 // 3. after gui list has changed (called by handleScene()), when switching between main_gui_list and scene specific list. Will show first GUi in list
 void guis_doTabCreationAfterGUIlistChanged(GUIlists newGUIlist) {
+  if (tabCreationBlockedByOverlay("guis_doTabCreationAfterGUIlistChanged")) return;
   gui_memoryOptimizer_afterGUIlistChanged(&tabview, &panel, &img1, &img2, newGUIlist);
   doLogMemoryUsage();
 }
 // 4. navigate to a specific GUI in gui_list
 void guis_doTabCreationForSpecificGUI(GUIlists GUIlist, int gui_list_index) {
+  if (tabCreationBlockedByOverlay("guis_doTabCreationForSpecificGUI")) return;
   gui_memoryOptimizer_navigateToGUI(&tabview, &panel, &img1, &img2, GUIlist, gui_list_index);
   doLogMemoryUsage();
 }
 // 5. navigate back to last active gui of previous gui_list
 void guis_doTabCreationForNavigateToLastActiveGUIofPreviousGUIlist() {
+  if (tabCreationBlockedByOverlay("guis_doTabCreationForNavigateToLastActiveGUIofPreviousGUIlist")) return;
   gui_memoryOptimizer_navigateToLastActiveGUIofPreviousGUIlist(&tabview, &panel, &img1, &img2);
   doLogMemoryUsage();
 }
