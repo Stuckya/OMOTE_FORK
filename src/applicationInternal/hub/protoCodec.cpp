@@ -127,23 +127,16 @@ size_t ProtoCodec::encodeRemoteEvent(const omote_RemoteEvent& event, uint8_t* bu
     return stream.bytes_written;
 }
 
-omote_CommandResult ProtoCodec::decodeCommandResult(const uint8_t* buffer, size_t buffer_size) {
+bool ProtoCodec::decodeCommandResult(const uint8_t* buffer, size_t buffer_size, omote_CommandResult& result) {
     omote_CommandResult proto_result = omote_CommandResult_init_zero;
 
-    // Decode from protobuf
     pb_istream_t stream = pb_istream_from_buffer(buffer, buffer_size);
-    bool status = pb_decode(&stream, omote_CommandResult_fields, &proto_result);
-    
-    if (!status) {
-        // Return error result on decode failure
-        omote_CommandResult error = omote_CommandResult_init_zero;
-        error.kind = omote_ResponseKind_ERROR;
-        error.which_data = omote_CommandResult_error_tag;
-        strncpy(error.data.error.message, "Failed to decode protobuf message", sizeof(error.data.error.message) - 1);
-        return error;
+    if (!pb_decode(&stream, omote_CommandResult_fields, &proto_result)) {
+        return false;
     }
-    
-    return proto_result;
+
+    result = proto_result;
+    return true;
 }
 
 } // namespace Hub

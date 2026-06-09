@@ -357,7 +357,6 @@ void receiveMQTTmessage_cb(std::string topic, std::string payload) {
 #if (ENABLE_HUB_COMMUNICATION > 0)
 #include "applicationInternal/hub/pairingManager.h"
 #include "applicationInternal/gui/guiNotification.h"
-// #include "devices/mediaPlayer/device_appleTV/gui_appleTV.h"
 
 void handleHubCommandResult(const omote_CommandResult& result) {
   omote_log_d("Received CommandResult: kind=%d\r\n", result.kind);

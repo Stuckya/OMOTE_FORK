@@ -48,12 +48,13 @@ void EspNowHubTransport::shutdown() {
 void hubMessageReceived_cb_proto(const uint8_t* data, size_t len) {
   omote_log_d("ESP-NOW: Received protobuf message, %d bytes\n", len);
   
-  // Decode protobuf to CommandResult
-  omote_CommandResult result = Hub::ProtoCodec::decodeCommandResult(data, len);
-  
-  // Forward to hub manager
-  auto& hubManager = HubManager::getInstance();
-  hubManager.handleIncomingCommandResult(result);
+  omote_CommandResult result = omote_CommandResult_init_zero;
+  if (!Hub::ProtoCodec::decodeCommandResult(data, len, result)) {
+    omote_log_w("ESP-NOW: dropping malformed CommandResult frame (%zu bytes)\n", len);
+    return;
+  }
+
+  HubManager::getInstance().handleIncomingCommandResult(result);
 }
 
 #endif

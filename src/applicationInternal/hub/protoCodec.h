@@ -26,12 +26,15 @@ public:
     
     /**
      * Decode protobuf bytes to a CommandResult.
-     * 
+     *
      * @param buffer Input buffer containing protobuf bytes
      * @param buffer_size Size of the input buffer
-     * @return omote_CommandResult protobuf struct, or error result on failure
+     * @param result Out-param populated only on success
+     * @return true on success; false on a malformed frame (result left untouched).
+     *         Decode failure is reported separately so callers can drop the frame
+     *         instead of mistaking it for a device-reported error.
      */
-    static omote_CommandResult decodeCommandResult(const uint8_t* buffer, size_t buffer_size);
+    static bool decodeCommandResult(const uint8_t* buffer, size_t buffer_size, omote_CommandResult& result);
     
     /**
      * Helper to create a RemoteEvent struct.

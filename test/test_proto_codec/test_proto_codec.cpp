@@ -46,7 +46,8 @@ void test_valid_command_result_round_trips() {
   pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
   TEST_ASSERT_TRUE(pb_encode(&stream, omote_CommandResult_fields, &source));
 
-  omote_CommandResult decoded = ProtoCodec::decodeCommandResult(buffer, stream.bytes_written);
+  omote_CommandResult decoded = omote_CommandResult_init_zero;
+  TEST_ASSERT_TRUE(ProtoCodec::decodeCommandResult(buffer, stream.bytes_written, decoded));
 
   TEST_ASSERT_EQUAL(omote_ResponseKind_VOLUME, decoded.kind);
   TEST_ASSERT_EQUAL(omote_CommandResult_volume_tag, decoded.which_data);
@@ -69,7 +70,8 @@ void test_pairing_command_result_round_trips_enum_step() {
   pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
   TEST_ASSERT_TRUE(pb_encode(&stream, omote_CommandResult_fields, &source));
 
-  omote_CommandResult decoded = ProtoCodec::decodeCommandResult(buffer, stream.bytes_written);
+  omote_CommandResult decoded = omote_CommandResult_init_zero;
+  TEST_ASSERT_TRUE(ProtoCodec::decodeCommandResult(buffer, stream.bytes_written, decoded));
 
   TEST_ASSERT_EQUAL(omote_ResponseKind_PAIRING, decoded.kind);
   TEST_ASSERT_EQUAL(omote_CommandResult_pairing_tag, decoded.which_data);
@@ -81,12 +83,11 @@ void test_pairing_command_result_round_trips_enum_step() {
   TEST_ASSERT_EQUAL_STRING("ctx", decoded.data.pairing.context_token);
 }
 
-void test_garbage_bytes_decode_to_error() {
+void test_garbage_bytes_fail_to_decode() {
   const uint8_t garbage[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-  omote_CommandResult decoded = ProtoCodec::decodeCommandResult(garbage, sizeof(garbage));
+  omote_CommandResult decoded = omote_CommandResult_init_zero;
 
-  TEST_ASSERT_EQUAL(omote_ResponseKind_ERROR, decoded.kind);
-  TEST_ASSERT_EQUAL(omote_CommandResult_error_tag, decoded.which_data);
+  TEST_ASSERT_FALSE(ProtoCodec::decodeCommandResult(garbage, sizeof(garbage), decoded));
 }
 
 int main() {
@@ -96,6 +97,6 @@ int main() {
   RUN_TEST(test_unknown_command_is_unspecified);
   RUN_TEST(test_valid_command_result_round_trips);
   RUN_TEST(test_pairing_command_result_round_trips_enum_step);
-  RUN_TEST(test_garbage_bytes_decode_to_error);
+  RUN_TEST(test_garbage_bytes_fail_to_decode);
   return UNITY_END();
 }

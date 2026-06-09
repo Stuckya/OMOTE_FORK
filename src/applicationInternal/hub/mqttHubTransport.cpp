@@ -50,11 +50,10 @@ void MqttHubTransport::shutdown() {
 
 // Proto callback that decodes binary protobuf and routes through HubManager
 void mqttMessageReceived_cb_proto(const uint8_t* data, size_t len) {
-  omote_CommandResult result = Hub::ProtoCodec::decodeCommandResult(data, len);
-
-  if (result.kind == omote_ResponseKind_ERROR && result.which_data == omote_CommandResult_error_tag) {
-    // Check if this is a decode failure (ProtoCodec returns error on decode failure)
-    omote_log_w("MQTT: Received CommandResult with error: %s\n", result.data.error.message);
+  omote_CommandResult result = omote_CommandResult_init_zero;
+  if (!Hub::ProtoCodec::decodeCommandResult(data, len, result)) {
+    omote_log_w("MQTT: dropping malformed CommandResult frame (%zu bytes)\n", len);
+    return;
   }
 
   HubManager::getInstance().handleIncomingCommandResult(result);
