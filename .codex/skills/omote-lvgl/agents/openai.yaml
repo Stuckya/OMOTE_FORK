@@ -1,0 +1,4 @@
+interface:
+  display_name: "Omote LVGL"
+  short_description: "LVGL 8.3 guidance for Omote firmware"
+  default_prompt: "Use $omote-lvgl to implement or review an Omote firmware GUI change."
