@@ -116,14 +116,13 @@ int main(int argc, char *argv[]) {
   register_gui_settings();
   //  register_gui_appleTV();
   register_gui_numpad();
-  register_gui_pairing();
   #if (ENABLE_KEYBOARD_BLE == 1)
   register_gui_blepairing();
   #endif
   // Only show these GUIs in the main gui list. If you don't set this explicitely, by default all registered guis are shown.
   #if (USE_SCENE_SPECIFIC_GUI_LIST != 0)
   main_gui_list =
-    {tabName_sceneSelection, tabName_settings, tabName_irReceiver, tabName_pairing
+    {tabName_sceneSelection, tabName_settings, tabName_irReceiver
     #if (ENABLE_KEYBOARD_BLE == 1)
     , tabName_blepairing
     #endif

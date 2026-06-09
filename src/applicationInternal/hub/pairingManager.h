@@ -20,7 +20,8 @@ public:
     const char* getContextToken() const { return contextToken.c_str(); }
     
     void reset();
-    
+
+    void startPairing(const std::string& deviceId);
     void submitPin(const char* pin);
     void cancel();
     

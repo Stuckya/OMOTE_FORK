@@ -52,33 +52,29 @@ void PairingManager::handlePairingStatus(const omote_PairingStatus& status) {
     switch (step) {
         case omote_PairingStep_PAIRING_STEP_AWAITING_PIN:
             active = true;
-            GuiNotification::showMessageNotification(message.c_str());
-            gui_memoryOptimizer_setActiveGUIname(std::string(tabName_pairing));
-            gui_pairing_update_status(message.c_str());
-            gui_pairing_clear_pin();
+            gui_pairing_show_awaiting(deviceId, message, expectedPinLength, requiresPin_);
             return;
 
         case omote_PairingStep_PAIRING_STEP_SUCCESS:
             active = false;
-            GuiNotification::showMessageNotification("Pairing successful!");
-            gui_pairing_clear_pin();
+            gui_pairing_show_success(deviceId);
             return;
 
         case omote_PairingStep_PAIRING_STEP_FAILED:
             active = false;
-            GuiNotification::showErrorNotification(message.c_str());
-            gui_pairing_clear_pin();
+            gui_pairing_show_failed(message);
             return;
 
         case omote_PairingStep_PAIRING_STEP_CANCELLED:
             active = false;
+            gui_pairing_hide();
             GuiNotification::showMessageNotification("Pairing cancelled");
-            gui_pairing_clear_pin();
             return;
 
         case omote_PairingStep_PAIRING_STEP_IDLE:
         case omote_PairingStep_PAIRING_STEP_UNSPECIFIED:
             active = false;
+            gui_pairing_hide();
             return;
     }
 
@@ -93,6 +89,17 @@ void PairingManager::reset() {
     requiresPin_ = false;
     expectedPinLength = 0;
     contextToken.clear();
+}
+
+void PairingManager::startPairing(const std::string& deviceId) {
+    omote_RemoteEvent event = ProtoCodec::createRemoteEvent(
+        deviceId,
+        omote_OmoteCommand_PAIRING_START,
+        omote_OmoteCommandType_SHORT
+    );
+
+    HubManager::getInstance().sendRemoteEvent(event);
+    omote_log_i("Requested pairing start for %s\r\n", deviceId.c_str());
 }
 
 void PairingManager::submitPin(const char* pin) {
