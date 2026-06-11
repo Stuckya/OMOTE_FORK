@@ -9,4 +9,8 @@ src/secrets_override.h
 **/.DS_Store
 .gitnexus
 .agents/
+# Per-developer local tooling (see omote-agent-tools companion repo)
+*.local.ini
+/sim_tooling_local
 .claude/
+.codex/
