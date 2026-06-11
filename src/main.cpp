@@ -58,6 +58,7 @@
 #include "applicationInternal/scenes/sceneHandler.h"
 #if (ENABLE_HUB_COMMUNICATION > 0)
 #include "applicationInternal/hub/hubManager.h"
+#include "applicationInternal/hub/deviceManager.h"
 #endif
 #include "secrets.h"
 
@@ -257,6 +258,7 @@ void loop(unsigned long *pIMUTaskTimer, unsigned long *pUpdateStatusTimer) {
   // Process hub communication
   #if (ENABLE_HUB_COMMUNICATION > 0)
   HubManager::getInstance().process();
+  Hub::DeviceManager::getInstance().process();
   #endif
 
 }
