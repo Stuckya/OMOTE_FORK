@@ -83,6 +83,81 @@ void test_pairing_command_result_round_trips_enum_step() {
   TEST_ASSERT_EQUAL_STRING("ctx", decoded.data.pairing.context_token);
 }
 
+void test_device_list_round_trips_with_full_entries() {
+  omote_CommandResult source = omote_CommandResult_init_zero;
+  source.kind = omote_ResponseKind_DEVICE_LIST;
+  source.which_data = omote_CommandResult_device_list_tag;
+  source.data.device_list.devices_count = 2;
+  source.data.device_list.scan_complete = true;
+
+  omote_DeviceInfo& living = source.data.device_list.devices[0];
+  strncpy(living.device_id, "APPLE_TV_LIVING", sizeof(living.device_id) - 1);
+  strncpy(living.name, "Living Room", sizeof(living.name) - 1);
+  strncpy(living.address, "10.0.0.4", sizeof(living.address) - 1);
+  strncpy(living.model, "Apple TV 4K", sizeof(living.model) - 1);
+  living.pairing = omote_PairingRequirement_PAIRING_REQUIREMENT_MANDATORY;
+  living.paired = true;
+  living.paired_at = 1747008000;
+
+  omote_DeviceInfo& kitchen = source.data.device_list.devices[1];
+  strncpy(kitchen.device_id, "APPLE_TV_KITCHEN", sizeof(kitchen.device_id) - 1);
+  strncpy(kitchen.name, "Kitchen", sizeof(kitchen.name) - 1);
+  kitchen.pairing = omote_PairingRequirement_PAIRING_REQUIREMENT_DISABLED;
+
+  uint8_t buffer[omote_CommandResult_size];
+  pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  TEST_ASSERT_TRUE(pb_encode(&stream, omote_CommandResult_fields, &source));
+
+  omote_CommandResult decoded = omote_CommandResult_init_zero;
+  TEST_ASSERT_TRUE(ProtoCodec::decodeCommandResult(buffer, stream.bytes_written, decoded));
+
+  TEST_ASSERT_EQUAL(omote_ResponseKind_DEVICE_LIST, decoded.kind);
+  TEST_ASSERT_EQUAL(omote_CommandResult_device_list_tag, decoded.which_data);
+  TEST_ASSERT_EQUAL_UINT(2, decoded.data.device_list.devices_count);
+  TEST_ASSERT_TRUE(decoded.data.device_list.scan_complete);
+  const omote_DeviceInfo& d0 = decoded.data.device_list.devices[0];
+  TEST_ASSERT_EQUAL_STRING("APPLE_TV_LIVING", d0.device_id);
+  TEST_ASSERT_EQUAL_STRING("Living Room", d0.name);
+  TEST_ASSERT_EQUAL_STRING("10.0.0.4", d0.address);
+  TEST_ASSERT_EQUAL_STRING("Apple TV 4K", d0.model);
+  TEST_ASSERT_EQUAL(omote_PairingRequirement_PAIRING_REQUIREMENT_MANDATORY, d0.pairing);
+  TEST_ASSERT_TRUE(d0.paired);
+  TEST_ASSERT_EQUAL_UINT64(1747008000, d0.paired_at);
+  const omote_DeviceInfo& d1 = decoded.data.device_list.devices[1];
+  TEST_ASSERT_EQUAL_STRING("APPLE_TV_KITCHEN", d1.device_id);
+  TEST_ASSERT_EQUAL(omote_PairingRequirement_PAIRING_REQUIREMENT_DISABLED, d1.pairing);
+  TEST_ASSERT_FALSE(d1.paired);
+}
+
+// The wire caps are the contract the hub truncates against (max_size includes
+// the NUL): an at-cap entry must round-trip, proving the firmware can decode
+// everything a cap-respecting hub will ever send.
+void test_device_list_at_cap_fields_round_trip() {
+  omote_CommandResult source = omote_CommandResult_init_zero;
+  source.kind = omote_ResponseKind_DEVICE_LIST;
+  source.which_data = omote_CommandResult_device_list_tag;
+  source.data.device_list.devices_count = 8;  // max_count
+
+  omote_DeviceInfo& d = source.data.device_list.devices[0];
+  memset(d.device_id, 'i', sizeof(d.device_id) - 1);   // 39 chars
+  memset(d.name, 'n', sizeof(d.name) - 1);             // 31 chars
+  memset(d.address, 'a', sizeof(d.address) - 1);       // 15 chars
+  memset(d.model, 'm', sizeof(d.model) - 1);           // 23 chars
+
+  uint8_t buffer[omote_CommandResult_size];
+  pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  TEST_ASSERT_TRUE(pb_encode(&stream, omote_CommandResult_fields, &source));
+
+  omote_CommandResult decoded = omote_CommandResult_init_zero;
+  TEST_ASSERT_TRUE(ProtoCodec::decodeCommandResult(buffer, stream.bytes_written, decoded));
+
+  TEST_ASSERT_EQUAL_UINT(8, decoded.data.device_list.devices_count);
+  TEST_ASSERT_EQUAL_UINT(sizeof(d.device_id) - 1, strlen(decoded.data.device_list.devices[0].device_id));
+  TEST_ASSERT_EQUAL_UINT(sizeof(d.name) - 1, strlen(decoded.data.device_list.devices[0].name));
+  TEST_ASSERT_EQUAL_UINT(sizeof(d.address) - 1, strlen(decoded.data.device_list.devices[0].address));
+  TEST_ASSERT_EQUAL_UINT(sizeof(d.model) - 1, strlen(decoded.data.device_list.devices[0].model));
+}
+
 void test_garbage_bytes_fail_to_decode() {
   const uint8_t garbage[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
   omote_CommandResult decoded = omote_CommandResult_init_zero;
@@ -97,6 +172,8 @@ int main() {
   RUN_TEST(test_unknown_command_is_unspecified);
   RUN_TEST(test_valid_command_result_round_trips);
   RUN_TEST(test_pairing_command_result_round_trips_enum_step);
+  RUN_TEST(test_device_list_round_trips_with_full_entries);
+  RUN_TEST(test_device_list_at_cap_fields_round_trip);
   RUN_TEST(test_garbage_bytes_fail_to_decode);
   return UNITY_END();
 }
