@@ -47,7 +47,20 @@ void DeviceManager::forgetDevice(const std::string& deviceId) {
         std::remove_if(paired_.begin(), paired_.end(),
                        [&](const DeviceEntry& d) { return d.deviceId == deviceId; }),
         paired_.end());
+    forgetInFlight_ = true;
     omote_log_i("Requested forget for %s\r\n", deviceId.c_str());
+}
+
+void DeviceManager::handleAck() {
+    if (!forgetInFlight_) return;
+    forgetInFlight_ = false;
+    refreshQueued_ = true;
+}
+
+void DeviceManager::process() {
+    if (!refreshQueued_) return;
+    refreshQueued_ = false;
+    requestDeviceList();
 }
 
 const DeviceEntry* DeviceManager::findDevice(const std::string& deviceId) const {

@@ -396,6 +396,7 @@ void handleHubCommandResult(const omote_CommandResult& result) {
     
     case omote_ResponseKind_ACK: {
       omote_log_d("Received acknowledgment from hub\r\n");
+      Hub::DeviceManager::getInstance().handleAck();
       break;
     }
     

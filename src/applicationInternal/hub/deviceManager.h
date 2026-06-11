@@ -35,6 +35,19 @@ public:
 
     void handleDeviceList(const omote_DeviceList& list);
 
+    // Hub acks DEVICE_FORGET only after credentials are deleted, so an
+    // ack-triggered refresh reads guaranteed post-deletion state. The list
+    // request a settings rebuild fires immediately after forget can race the
+    // hub's async forget handling and report the device still paired. The
+    // refresh itself is deferred to process(): handleAck runs inside the
+    // transport's receive dispatch, where issuing a new send wedges the
+    // desktop WebSocket client (re-entrant send).
+    void handleAck();
+
+    // Called once per main loop, outside transport dispatch; flushes the
+    // deferred post-forget refresh.
+    void process();
+
     const std::vector<DeviceEntry>& pairedDevices() const { return paired_; }
     const DeviceEntry* findDevice(const std::string& deviceId) const;
 
@@ -48,6 +61,8 @@ private:
     void sendCommand(const std::string& device, omote_OmoteCommand command);
 
     Pending pending_ = Pending::kNone;
+    bool forgetInFlight_ = false;
+    bool refreshQueued_ = false;
     std::vector<DeviceEntry> paired_;
     std::vector<DeviceEntry> scanResults_;
 };
