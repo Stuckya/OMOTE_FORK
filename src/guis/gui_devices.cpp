@@ -100,6 +100,14 @@ lv_obj_t *small_label(lv_obj_t *parent, const char *text, uint32_t color) {
   return l;
 }
 
+bool get_utc_time_parts(time_t timestamp, struct tm &parts) {
+#if defined(_WIN32) || defined(WIN32)
+  return gmtime_s(&parts, &timestamp) == 0;
+#else
+  return gmtime_r(&timestamp, &parts) != nullptr;
+#endif
+}
+
 std::string format_paired_date(uint64_t epoch) {
   if (epoch == 0) return "--";
   static const char *const kMonths[] = {"Jan", "Feb", "Mar", "Apr",
@@ -107,7 +115,7 @@ std::string format_paired_date(uint64_t epoch) {
                                         "Sep", "Oct", "Nov", "Dec"};
   const time_t t = static_cast<time_t>(epoch);
   struct tm parts;
-  if (gmtime_r(&t, &parts) == nullptr) return "--";
+  if (!get_utc_time_parts(t, parts)) return "--";
   return std::string(kMonths[parts.tm_mon]) + " " +
          std::to_string(parts.tm_mday);
 }
