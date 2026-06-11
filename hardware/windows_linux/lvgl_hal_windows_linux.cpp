@@ -33,6 +33,11 @@ static int tick_thread(void * data)
 
 static lv_disp_draw_buf_t draw_buf;
 
+// Post-init hook for out-of-tree simulator tooling (see omote-agent-tools).
+// Weak no-op in product builds; tooling envs link a strong override that runs
+// after the display driver is registered, so lv_timer/lv_scr_act are valid.
+extern "C" __attribute__((weak)) void omote_sim_post_init(void) {}
+
 void init_lvgl_HAL() {
   // Workaround for sdl2 `-m32` crash
   // https://bugs.launchpad.net/ubuntu/+source/libsdl2/+bug/1775067/comments/7
@@ -111,4 +116,6 @@ void init_lvgl_HAL() {
    * You have to call 'lv_tick_inc()' in periodically to inform lvgl about how much time were elapsed
    * Create an SDL thread to do this*/
   SDL_CreateThread(tick_thread, "tick", NULL);
+
+  omote_sim_post_init();
 }
