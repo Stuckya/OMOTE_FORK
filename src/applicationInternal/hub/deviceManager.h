@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <string>
 #include <vector>
 #include "remote_messages.pb.h"
@@ -17,10 +18,8 @@ struct DeviceEntry {
     uint64_t pairedAt = 0;
 };
 
-// Owns the device list/scan/forget conversation with the hub (LIST_DEVICES,
-// DEVICE_SCAN_*, DEVICE_FORGET) and caches the last known devices. A single
-// DEVICE_LIST response kind answers both a stored-device listing and a scan,
-// so the manager tracks which request is outstanding to route the reply.
+// Owns the device list/scan/forget conversation with the hub and caches the
+// last known devices. DEVICE_LIST has no request id, so requests are serialized.
 class DeviceManager {
 public:
     static DeviceManager& getInstance();
@@ -29,23 +28,13 @@ public:
     void startScan();
     void cancelScan();
 
-    // Sends DEVICE_FORGET and removes the device from the cache optimistically;
-    // the next LIST_DEVICES refresh (settings tab recreation) self-corrects.
     void forgetDevice(const std::string& deviceId);
 
     void handleDeviceList(const omote_DeviceList& list);
 
-    // Hub acks DEVICE_FORGET only after credentials are deleted, so an
-    // ack-triggered refresh reads guaranteed post-deletion state. The list
-    // request a settings rebuild fires immediately after forget can race the
-    // hub's async forget handling and report the device still paired. The
-    // refresh itself is deferred to process(): handleAck runs inside the
-    // transport's receive dispatch, where issuing a new send wedges the
-    // desktop WebSocket client (re-entrant send).
     void handleAck();
 
-    // Called once per main loop, outside transport dispatch; flushes the
-    // deferred post-forget refresh.
+    // Called once per main loop, outside transport dispatch.
     void process();
 
     const std::vector<DeviceEntry>& pairedDevices() const { return paired_; }
@@ -56,15 +45,40 @@ private:
     DeviceManager(const DeviceManager&) = delete;
     DeviceManager& operator=(const DeviceManager&) = delete;
 
-    enum class Pending { kNone, kList, kScan };
+    enum class Pending { kNone, kList, kScan, kCancelScan, kForget };
 
-    void sendCommand(const std::string& device, omote_OmoteCommand command);
+    struct DeviceListResponse {
+        std::vector<DeviceEntry> entries;
+        bool scanComplete = false;
+    };
+
+    struct InboundEvent {
+        enum class Kind { kAck, kDeviceList };
+        Kind kind = Kind::kAck;
+        DeviceListResponse deviceList;
+    };
+
+    bool sendCommand(const std::string& device, omote_OmoteCommand command);
+    bool sendListRequest();
+    bool sendScanRequest();
+    bool sendForgetRequest(const std::string& deviceId);
+    void applyAck();
+    void applyDeviceList(const DeviceListResponse& response);
+    void flushDeferredRequests();
+    void erasePairedDevice(const std::string& deviceId);
+    void replacePairedDevices(const std::vector<DeviceEntry>& entries);
 
     Pending pending_ = Pending::kNone;
-    bool forgetInFlight_ = false;
     bool refreshQueued_ = false;
+    bool scanQueued_ = false;
+    bool forgetQueued_ = false;
+    bool ignoreNextListResponse_ = false;
+    std::string queuedForgetDeviceId_;
     std::vector<DeviceEntry> paired_;
     std::vector<DeviceEntry> scanResults_;
+
+    std::mutex inboundMutex_;
+    std::vector<InboundEvent> inboundEvents_;
 };
 
 }  // namespace Hub

@@ -2,7 +2,6 @@
 #include "hubManager.h"
 #include "protoCodec.h"
 #include "applicationInternal/omote_log.h"
-#include "applicationInternal/hardware/hardwarePresenter.h"
 #include "guis/gui_devices.h"
 #include "guis/gui_settings.h"
 
@@ -15,52 +14,104 @@ DeviceManager& DeviceManager::getInstance() {
     return instance;
 }
 
-void DeviceManager::sendCommand(const std::string& device,
+bool DeviceManager::sendCommand(const std::string& device,
                                 omote_OmoteCommand command) {
     omote_RemoteEvent event = ProtoCodec::createRemoteEvent(
         device, command, omote_OmoteCommandType_SHORT);
-    HubManager::getInstance().sendRemoteEvent(event);
+    return HubManager::getInstance().sendRemoteEvent(event);
 }
 
 void DeviceManager::requestDeviceList() {
-    pending_ = Pending::kList;
-    sendCommand("HUB", omote_OmoteCommand_LIST_DEVICES);
-    omote_log_i("Requested device list\r\n");
+    if (pending_ == Pending::kList) return;
+    if (pending_ != Pending::kNone) {
+        refreshQueued_ = true;
+        omote_log_i("Queued device list refresh\r\n");
+        return;
+    }
+
+    sendListRequest();
 }
 
 void DeviceManager::startScan() {
-    pending_ = Pending::kScan;
     scanResults_.clear();
-    sendCommand("HUB", omote_OmoteCommand_DEVICE_SCAN_START);
-    omote_log_i("Requested device scan\r\n");
+    if (pending_ == Pending::kScan) return;
+    if (pending_ != Pending::kNone) {
+        scanQueued_ = true;
+        omote_log_i("Queued device scan\r\n");
+        return;
+    }
+
+    sendScanRequest();
 }
 
 void DeviceManager::cancelScan() {
-    pending_ = Pending::kNone;
-    sendCommand("HUB", omote_OmoteCommand_DEVICE_SCAN_CANCEL);
+    scanQueued_ = false;
+    if (pending_ == Pending::kScan) {
+        pending_ = Pending::kCancelScan;
+        if (!sendCommand("HUB", omote_OmoteCommand_DEVICE_SCAN_CANCEL)) {
+            pending_ = Pending::kNone;
+            refreshQueued_ = true;
+            return;
+        }
+        omote_log_i("Cancelled device scan\r\n");
+        return;
+    }
+    if (pending_ == Pending::kList) {
+        omote_log_i("Cancelled queued device scan\r\n");
+        return;
+    }
+    if (pending_ == Pending::kCancelScan) return;
+
     omote_log_i("Cancelled device scan\r\n");
 }
 
 void DeviceManager::forgetDevice(const std::string& deviceId) {
-    sendCommand(deviceId, omote_OmoteCommand_DEVICE_FORGET);
-    paired_.erase(
-        std::remove_if(paired_.begin(), paired_.end(),
-                       [&](const DeviceEntry& d) { return d.deviceId == deviceId; }),
-        paired_.end());
-    forgetInFlight_ = true;
+    if (pending_ != Pending::kNone) {
+        queuedForgetDeviceId_ = deviceId;
+        forgetQueued_ = true;
+        erasePairedDevice(deviceId);
+        omote_log_i("Queued forget for %s\r\n", deviceId.c_str());
+        return;
+    }
+
+    sendForgetRequest(deviceId);
+}
+
+bool DeviceManager::sendForgetRequest(const std::string& deviceId) {
+    pending_ = Pending::kForget;
+    if (!sendCommand(deviceId, omote_OmoteCommand_DEVICE_FORGET)) {
+        pending_ = Pending::kNone;
+        return false;
+    }
+
+    erasePairedDevice(deviceId);
     omote_log_i("Requested forget for %s\r\n", deviceId.c_str());
+    return true;
 }
 
 void DeviceManager::handleAck() {
-    if (!forgetInFlight_) return;
-    forgetInFlight_ = false;
-    refreshQueued_ = true;
+    InboundEvent event;
+    event.kind = InboundEvent::Kind::kAck;
+    std::lock_guard<std::mutex> lock(inboundMutex_);
+    inboundEvents_.push_back(event);
 }
 
 void DeviceManager::process() {
-    if (!refreshQueued_) return;
-    refreshQueued_ = false;
-    requestDeviceList();
+    std::vector<InboundEvent> events;
+    {
+        std::lock_guard<std::mutex> lock(inboundMutex_);
+        events.swap(inboundEvents_);
+    }
+
+    for (const InboundEvent& event : events) {
+        if (event.kind == InboundEvent::Kind::kAck) {
+            applyAck();
+        } else {
+            applyDeviceList(event.deviceList);
+        }
+    }
+
+    flushDeferredRequests();
 }
 
 const DeviceEntry* DeviceManager::findDevice(const std::string& deviceId) const {
@@ -74,8 +125,9 @@ const DeviceEntry* DeviceManager::findDevice(const std::string& deviceId) const 
 }
 
 void DeviceManager::handleDeviceList(const omote_DeviceList& list) {
-    std::vector<DeviceEntry> entries;
-    entries.reserve(list.devices_count);
+    DeviceListResponse response;
+    response.entries.reserve(list.devices_count);
+    response.scanComplete = list.scan_complete;
     for (pb_size_t i = 0; i < list.devices_count; ++i) {
         const omote_DeviceInfo& info = list.devices[i];
         DeviceEntry e;
@@ -86,31 +138,117 @@ void DeviceManager::handleDeviceList(const omote_DeviceList& list) {
         e.pairing = info.pairing;
         e.paired = info.paired;
         e.pairedAt = info.paired_at;
-        entries.push_back(e);
+        response.entries.push_back(e);
     }
 
+    InboundEvent event;
+    event.kind = InboundEvent::Kind::kDeviceList;
+    event.deviceList = response;
+    std::lock_guard<std::mutex> lock(inboundMutex_);
+    inboundEvents_.push_back(event);
+}
+
+bool DeviceManager::sendListRequest() {
+    pending_ = Pending::kList;
+    if (!sendCommand("HUB", omote_OmoteCommand_LIST_DEVICES)) {
+        pending_ = Pending::kNone;
+        return false;
+    }
+    omote_log_i("Requested device list\r\n");
+    return true;
+}
+
+bool DeviceManager::sendScanRequest() {
+    pending_ = Pending::kScan;
+    scanResults_.clear();
+    if (!sendCommand("HUB", omote_OmoteCommand_DEVICE_SCAN_START)) {
+        pending_ = Pending::kNone;
+        return false;
+    }
+    omote_log_i("Requested device scan\r\n");
+    return true;
+}
+
+void DeviceManager::applyAck() {
+    if (pending_ == Pending::kCancelScan) {
+        pending_ = Pending::kNone;
+        ignoreNextListResponse_ = true;
+        refreshQueued_ = true;
+        return;
+    }
+
+    if (pending_ == Pending::kForget) {
+        pending_ = Pending::kNone;
+        refreshQueued_ = true;
+    }
+}
+
+void DeviceManager::applyDeviceList(const DeviceListResponse& response) {
     omote_log_i("Device list: %d devices, scan_complete=%d, pending=%d\r\n",
-                static_cast<int>(entries.size()),
-                static_cast<int>(list.scan_complete),
+                static_cast<int>(response.entries.size()),
+                static_cast<int>(response.scanComplete),
                 static_cast<int>(pending_));
 
     if (pending_ == Pending::kScan) {
-        scanResults_ = entries;
-        // Progress updates refresh the results in place; the final list also
-        // clears the outstanding request.
-        if (list.scan_complete) pending_ = Pending::kNone;
+        scanResults_ = response.entries;
+        if (response.scanComplete) pending_ = Pending::kNone;
         gui_devices_show_scan_results(scanResults_);
         return;
     }
 
-    // Stored-device listing (or an unsolicited push): refresh the paired cache
-    // and let the Settings tab redraw its Devices rows if it is on screen.
+    if (pending_ == Pending::kList) {
+        if (ignoreNextListResponse_) {
+            ignoreNextListResponse_ = false;
+            pending_ = Pending::kNone;
+            refreshQueued_ = true;
+            omote_log_d("Ignored first device list after scan cancel\r\n");
+            return;
+        }
+
+        replacePairedDevices(response.entries);
+        pending_ = Pending::kNone;
+        gui_settings_refresh_devices();
+        return;
+    }
+
+    omote_log_d("Ignored device list with no matching request\r\n");
+}
+
+void DeviceManager::flushDeferredRequests() {
+    if (pending_ != Pending::kNone) return;
+
+    if (forgetQueued_) {
+        const std::string deviceId = queuedForgetDeviceId_;
+        queuedForgetDeviceId_.clear();
+        forgetQueued_ = false;
+        sendForgetRequest(deviceId);
+        return;
+    }
+
+    if (scanQueued_) {
+        scanQueued_ = false;
+        sendScanRequest();
+        return;
+    }
+
+    if (!refreshQueued_) return;
+    refreshQueued_ = false;
+    sendListRequest();
+}
+
+void DeviceManager::erasePairedDevice(const std::string& deviceId) {
+    paired_.erase(
+        std::remove_if(paired_.begin(), paired_.end(),
+                       [&](const DeviceEntry& d) { return d.deviceId == deviceId; }),
+        paired_.end());
+}
+
+void DeviceManager::replacePairedDevices(const std::vector<DeviceEntry>& entries) {
     paired_.clear();
     for (const DeviceEntry& e : entries) {
+        if (forgetQueued_ && e.deviceId == queuedForgetDeviceId_) continue;
         if (e.paired) paired_.push_back(e);
     }
-    if (pending_ == Pending::kList) pending_ = Pending::kNone;
-    gui_settings_refresh_devices();
 }
 
 }  // namespace Hub

@@ -301,7 +301,16 @@ void gui_devices_show_scan_results(
   overlay = modalShell_create(
       "Apple TVs", std::to_string(devices.size()) + " found", close_cb);
 
-  lv_obj_t *card = make_card(overlay);
+  lv_obj_t *list = lv_obj_create(overlay);
+  lv_obj_remove_style_all(list);
+  lv_obj_set_width(list, lv_pct(100));
+  lv_obj_set_flex_grow(list, 1);
+  lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
+  lv_obj_add_flag(list, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_scroll_dir(list, LV_DIR_VER);
+  lv_obj_set_scrollbar_mode(list, LV_SCROLLBAR_MODE_AUTO);
+
+  lv_obj_t *card = make_card(list);
   for (Hub::DeviceEntry &entry : row_entries) {
     lv_obj_t *row = make_row(card, 44);
 
@@ -341,11 +350,6 @@ void gui_devices_show_scan_results(
       small_label(row, requirement_text(entry.pairing), GuiTheme::kTextMute);
     }
   }
-
-  lv_obj_t *spacer = lv_obj_create(overlay);
-  lv_obj_remove_style_all(spacer);
-  lv_obj_set_width(spacer, lv_pct(100));
-  lv_obj_set_flex_grow(spacer, 1);
 
   GuiTheme::textButton(overlay, "Scan Again", GuiTheme::kBlue, scan_again_cb);
 }
