@@ -10,6 +10,7 @@
 #include "applicationInternal/gui/guiBase.h"
 #include "applicationInternal/gui/guiTheme.h"
 #include "applicationInternal/hub/pairingManager.h"
+#include "guis/gui_devices.h"
 
 namespace {
 
@@ -38,6 +39,9 @@ void destroy_overlay() {
 // tree is rebuilt once in gui_pairing_hide() when pairing ends.
 void begin_screen() {
   guis_suspendActiveTabs();
+  // Pairing can be entered from the device-scan results; both modals share
+  // lv_layer_top, so the scan overlay must go before ours appears.
+  gui_devices_dismiss_overlay();
   destroy_overlay();
 }
 

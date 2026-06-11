@@ -5,6 +5,10 @@
 #include "applicationInternal/gui/guiRegistry.h"
 #include "applicationInternal/omote_log.h"
 #include "guis/gui_settings.h"
+#if (ENABLE_HUB_COMMUNICATION > 0)
+#include "applicationInternal/hub/deviceManager.h"
+#include "guis/gui_devices.h"
+#endif
 
 // LVGL declarations
 LV_IMG_DECLARE(high_brightness);
@@ -13,6 +17,59 @@ LV_IMG_DECLARE(low_brightness);
 lv_obj_t* objBattSettingsVoltage;
 lv_obj_t* objBattSettingsPercentage;
 //lv_obj_t* objBattSettingsIscharging;
+
+#if (ENABLE_HUB_COMMUNICATION > 0)
+// Devices group: container is rebuilt from DeviceManager's cache, so a
+// DEVICE_LIST response landing while the tab is visible refreshes in place.
+static lv_obj_t* devicesBox = NULL;
+
+static void pair_new_event_cb(lv_event_t* e){
+  (void)e;
+  Hub::DeviceManager::getInstance().startScan();
+  gui_devices_show_scanning();
+}
+
+static void device_row_event_cb(lv_event_t* e){
+  const Hub::DeviceEntry* entry =
+      static_cast<const Hub::DeviceEntry*>(lv_event_get_user_data(e));
+  gui_devices_show_detail(*entry);
+}
+
+static lv_obj_t* device_settings_row(const char* left, const char* right,
+                                     lv_color_t rightColor) {
+  lv_obj_t* row = lv_obj_create(devicesBox);
+  lv_obj_remove_style_all(row);
+  lv_obj_set_size(row, lv_pct(100), 30);
+  lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER,
+                        LV_FLEX_ALIGN_CENTER);
+  lv_obj_t* l = lv_label_create(row);
+  lv_label_set_text(l, left);
+  lv_obj_t* r = lv_label_create(row);
+  lv_label_set_text(r, right);
+  lv_obj_set_style_text_color(r, rightColor, LV_PART_MAIN);
+  return row;
+}
+
+static void build_device_rows(void) {
+  if (devicesBox == NULL) return;
+  lv_obj_clean(devicesBox);
+
+  lv_obj_t* row = device_settings_row(LV_SYMBOL_PLUS " Pair New Apple TV",
+                                      LV_SYMBOL_RIGHT, lv_color_white());
+  lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_event_cb(row, pair_new_event_cb, LV_EVENT_CLICKED, NULL);
+
+  for (const Hub::DeviceEntry& entry :
+       Hub::DeviceManager::getInstance().pairedDevices()) {
+    row = device_settings_row(entry.name.c_str(), LV_SYMBOL_OK " Paired",
+                              lv_color_hex(0x34c759));
+    lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(row, device_row_event_cb, LV_EVENT_CLICKED,
+                        const_cast<Hub::DeviceEntry*>(&entry));
+  }
+}
+#endif
 
 // Display Backlight Slider Event handler
 static void bl_slider_event_cb(lv_event_t* e){
@@ -185,6 +242,20 @@ void create_tab_content_settings(lv_obj_t* tab) {
   lv_obj_set_style_border_color(lv_dropdown_get_list(drop), lv_color_hex(0x505050), LV_PART_MAIN);
   lv_obj_add_event_cb(drop, timout_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
+  #if (ENABLE_HUB_COMMUNICATION > 0)
+  // Devices (hub-managed) ---------------------------------------------------
+  menuLabel = lv_label_create(tab);
+  lv_label_set_text(menuLabel, "Devices");
+  devicesBox = lv_obj_create(tab);
+  lv_obj_set_size(devicesBox, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_style_bg_color(devicesBox, color_primary, LV_PART_MAIN);
+  lv_obj_set_style_border_width(devicesBox, 0, LV_PART_MAIN);
+  lv_obj_set_flex_flow(devicesBox, LV_FLEX_FLOW_COLUMN);
+  build_device_rows();
+  // Refresh the paired rows from hub storage each time the tab is built.
+  Hub::DeviceManager::getInstance().requestDeviceList();
+  #endif
+
   // // Add another label, then a settings box for WiFi
   // menuLabel = lv_label_create(tab);
   // lv_label_set_text(menuLabel, "Wi-Fi");
@@ -281,6 +352,15 @@ void notify_tab_before_delete_settings(void) {
   // They must check if object is NULL and must not use it if so
   objBattSettingsVoltage = NULL;
   objBattSettingsPercentage = NULL;
+  #if (ENABLE_HUB_COMMUNICATION > 0)
+  devicesBox = NULL;
+  #endif
+}
+
+void gui_settings_refresh_devices(void) {
+  #if (ENABLE_HUB_COMMUNICATION > 0)
+  build_device_rows();
+  #endif
 }
 
 void register_gui_settings(void){

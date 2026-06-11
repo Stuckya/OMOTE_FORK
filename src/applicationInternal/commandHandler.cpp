@@ -356,6 +356,7 @@ void receiveMQTTmessage_cb(std::string topic, std::string payload) {
 
 #if (ENABLE_HUB_COMMUNICATION > 0)
 #include "applicationInternal/hub/pairingManager.h"
+#include "applicationInternal/hub/deviceManager.h"
 #include "applicationInternal/gui/guiNotification.h"
 
 void handleHubCommandResult(const omote_CommandResult& result) {
@@ -426,6 +427,18 @@ void handleHubCommandResult(const omote_CommandResult& result) {
       break;
     }
     
+    case omote_ResponseKind_DEVICE_LIST: {
+      if (result.which_data == omote_CommandResult_device_list_tag) {
+        const auto& device_list = result.data.device_list;
+        omote_log_d("Device list: %d devices, scan_complete=%d\r\n",
+                   device_list.devices_count,
+                   static_cast<int>(device_list.scan_complete));
+
+        Hub::DeviceManager::getInstance().handleDeviceList(device_list);
+      }
+      break;
+    }
+
     case omote_ResponseKind_NONE: {
       omote_log_d("Received NONE response from hub\r\n");
       break;
