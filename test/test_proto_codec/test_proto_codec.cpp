@@ -8,6 +8,14 @@ using Hub::ProtoCodec;
 void setUp() {}
 void tearDown() {}
 
+static omote_CommandResult makeCommandResult(omote_ResponseKind kind, pb_size_t dataTag) {
+  omote_CommandResult result = omote_CommandResult_init_zero;
+  memset(&result.data, 0, sizeof(result.data));
+  result.kind = kind;
+  result.which_data = dataTag;
+  return result;
+}
+
 static void assertMaps(const char* cmd, omote_OmoteCommand expected) {
   TEST_ASSERT_EQUAL(expected, ProtoCodec::stringToCommand(cmd));
 }
@@ -36,9 +44,7 @@ void test_unknown_command_is_unspecified() {
 }
 
 void test_valid_command_result_round_trips() {
-  omote_CommandResult source = omote_CommandResult_init_zero;
-  source.kind = omote_ResponseKind_VOLUME;
-  source.which_data = omote_CommandResult_volume_tag;
+  omote_CommandResult source = makeCommandResult(omote_ResponseKind_VOLUME, omote_CommandResult_volume_tag);
   source.data.volume.level = -30.5f;
   source.data.volume.is_muted = true;
 
@@ -56,9 +62,7 @@ void test_valid_command_result_round_trips() {
 }
 
 void test_pairing_command_result_round_trips_enum_step() {
-  omote_CommandResult source = omote_CommandResult_init_zero;
-  source.kind = omote_ResponseKind_PAIRING;
-  source.which_data = omote_CommandResult_pairing_tag;
+  omote_CommandResult source = makeCommandResult(omote_ResponseKind_PAIRING, omote_CommandResult_pairing_tag);
   strncpy(source.data.pairing.device_id, "AppleTV", sizeof(source.data.pairing.device_id) - 1);
   source.data.pairing.step = omote_PairingStep_PAIRING_STEP_AWAITING_PIN;
   strncpy(source.data.pairing.message, "Enter PIN", sizeof(source.data.pairing.message) - 1);
@@ -84,9 +88,7 @@ void test_pairing_command_result_round_trips_enum_step() {
 }
 
 void test_device_list_round_trips_with_full_entries() {
-  omote_CommandResult source = omote_CommandResult_init_zero;
-  source.kind = omote_ResponseKind_DEVICE_LIST;
-  source.which_data = omote_CommandResult_device_list_tag;
+  omote_CommandResult source = makeCommandResult(omote_ResponseKind_DEVICE_LIST, omote_CommandResult_device_list_tag);
   source.data.device_list.devices_count = 2;
   source.data.device_list.scan_complete = true;
 
@@ -122,7 +124,8 @@ void test_device_list_round_trips_with_full_entries() {
   TEST_ASSERT_EQUAL_STRING("Apple TV 4K", d0.model);
   TEST_ASSERT_EQUAL(omote_PairingRequirement_PAIRING_REQUIREMENT_MANDATORY, d0.pairing);
   TEST_ASSERT_TRUE(d0.paired);
-  TEST_ASSERT_EQUAL_UINT64(1747008000, d0.paired_at);
+  TEST_ASSERT_EQUAL_UINT32(0, static_cast<uint32_t>(d0.paired_at >> 32));
+  TEST_ASSERT_EQUAL_UINT32(1747008000UL, static_cast<uint32_t>(d0.paired_at));
   const omote_DeviceInfo& d1 = decoded.data.device_list.devices[1];
   TEST_ASSERT_EQUAL_STRING("APPLE_TV_KITCHEN", d1.device_id);
   TEST_ASSERT_EQUAL(omote_PairingRequirement_PAIRING_REQUIREMENT_DISABLED, d1.pairing);
@@ -130,19 +133,20 @@ void test_device_list_round_trips_with_full_entries() {
 }
 
 // The wire caps are the contract the hub truncates against (max_size includes
-// the NUL): an at-cap entry must round-trip, proving the firmware can decode
+// the NUL): at-cap entries must round-trip, proving the firmware can decode
 // everything a cap-respecting hub will ever send.
 void test_device_list_at_cap_fields_round_trip() {
-  omote_CommandResult source = omote_CommandResult_init_zero;
-  source.kind = omote_ResponseKind_DEVICE_LIST;
-  source.which_data = omote_CommandResult_device_list_tag;
-  source.data.device_list.devices_count = 8;  // max_count
+  omote_CommandResult source = makeCommandResult(omote_ResponseKind_DEVICE_LIST, omote_CommandResult_device_list_tag);
+  source.data.device_list.devices_count =
+      sizeof(source.data.device_list.devices) / sizeof(source.data.device_list.devices[0]);
 
-  omote_DeviceInfo& d = source.data.device_list.devices[0];
-  memset(d.device_id, 'i', sizeof(d.device_id) - 1);   // 39 chars
-  memset(d.name, 'n', sizeof(d.name) - 1);             // 31 chars
-  memset(d.address, 'a', sizeof(d.address) - 1);       // 15 chars
-  memset(d.model, 'm', sizeof(d.model) - 1);           // 23 chars
+  for (pb_size_t i = 0; i < source.data.device_list.devices_count; ++i) {
+    omote_DeviceInfo& device = source.data.device_list.devices[i];
+    memset(device.device_id, 'i', sizeof(device.device_id) - 1);
+    memset(device.name, 'n', sizeof(device.name) - 1);
+    memset(device.address, 'a', sizeof(device.address) - 1);
+    memset(device.model, 'm', sizeof(device.model) - 1);
+  }
 
   uint8_t buffer[omote_CommandResult_size];
   pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
@@ -151,11 +155,15 @@ void test_device_list_at_cap_fields_round_trip() {
   omote_CommandResult decoded = omote_CommandResult_init_zero;
   TEST_ASSERT_TRUE(ProtoCodec::decodeCommandResult(buffer, stream.bytes_written, decoded));
 
-  TEST_ASSERT_EQUAL_UINT(8, decoded.data.device_list.devices_count);
-  TEST_ASSERT_EQUAL_UINT(sizeof(d.device_id) - 1, strlen(decoded.data.device_list.devices[0].device_id));
-  TEST_ASSERT_EQUAL_UINT(sizeof(d.name) - 1, strlen(decoded.data.device_list.devices[0].name));
-  TEST_ASSERT_EQUAL_UINT(sizeof(d.address) - 1, strlen(decoded.data.device_list.devices[0].address));
-  TEST_ASSERT_EQUAL_UINT(sizeof(d.model) - 1, strlen(decoded.data.device_list.devices[0].model));
+  TEST_ASSERT_EQUAL_UINT(source.data.device_list.devices_count, decoded.data.device_list.devices_count);
+  TEST_ASSERT_EQUAL_UINT(sizeof(source.data.device_list.devices[0].device_id) - 1,
+                         strlen(decoded.data.device_list.devices[0].device_id));
+  TEST_ASSERT_EQUAL_UINT(sizeof(source.data.device_list.devices[0].name) - 1,
+                         strlen(decoded.data.device_list.devices[0].name));
+  TEST_ASSERT_EQUAL_UINT(sizeof(source.data.device_list.devices[0].address) - 1,
+                         strlen(decoded.data.device_list.devices[0].address));
+  TEST_ASSERT_EQUAL_UINT(sizeof(source.data.device_list.devices[0].model) - 1,
+                         strlen(decoded.data.device_list.devices[0].model));
 }
 
 void test_garbage_bytes_fail_to_decode() {
