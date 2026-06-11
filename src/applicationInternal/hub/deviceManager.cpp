@@ -2,6 +2,7 @@
 #include "hubManager.h"
 #include "protoCodec.h"
 #include "applicationInternal/omote_log.h"
+#include "applicationInternal/hardware/hardwarePresenter.h"
 #include "guis/gui_devices.h"
 #include "guis/gui_settings.h"
 
