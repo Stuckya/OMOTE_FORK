@@ -15,6 +15,16 @@ void gui_memoryOptimizer_afterGUIlistChanged(lv_obj_t** tabview, lv_obj_t** pane
 void gui_memoryOptimizer_navigateToGUI(lv_obj_t** tabview, lv_obj_t** panel, lv_obj_t** img1, lv_obj_t** img2, GUIlists GUIlist, int gui_list_index);
 void gui_memoryOptimizer_navigateToLastActiveGUIofPreviousGUIlist(lv_obj_t** tabview, lv_obj_t** panel, lv_obj_t** img1, lv_obj_t** img2);
 
+// Free the whole tab tree while a full-screen overlay (e.g. pairing) owns the
+// screen, then rebuild the same GUI on exit. The overlay lives on lv_layer_top,
+// so it survives the teardown. Both are idempotent and reuse the tested
+// notifyAndClear/navigateToGUI paths so no parallel teardown logic is needed.
+void gui_memoryOptimizer_suspendActiveTabs(lv_obj_t** tabview, lv_obj_t** panel, lv_obj_t** img1, lv_obj_t** img2);
+void gui_memoryOptimizer_resumeActiveTabs(lv_obj_t** tabview, lv_obj_t** panel, lv_obj_t** img1, lv_obj_t** img2);
+// true while a full-screen overlay has torn the tab tree down; tab (re)creation
+// must be suppressed so a stray nav does not rebuild the tabview under the overlay
+bool gui_memoryOptimizer_tabsSuspended();
+
 int gui_memoryOptimizer_getActiveTabID();
 bool gui_memoryOptimizer_isTabIDInMemory(int tabID);
 bool gui_memoryOptimizer_isGUInameInMemory(std::string GUIname);

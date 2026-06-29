@@ -712,6 +712,43 @@ void gui_memoryOptimizer_navigateToLastActiveGUIofPreviousGUIlist(lv_obj_t** tab
 
 }
 
+// 6. suspend/resume the tab tree for a full-screen overlay (e.g. pairing)
+struct t_suspended_gui {
+  bool active = false;
+  GUIlists gui_list = MAIN_GUI_LIST;
+  int gui_list_index = 0;
+};
+t_suspended_gui suspended_gui;
+
+void gui_memoryOptimizer_suspendActiveTabs(lv_obj_t** tabview, lv_obj_t** panel, lv_obj_t** img1, lv_obj_t** img2) {
+  if (suspended_gui.active) {
+    return;
+  }
+  omote_log_d("--- Will suspend active tabs for full-screen overlay\r\n");
+
+  // Remember what to rebuild, then tear the tabview/panel down. The overlay on
+  // lv_layer_top is a different layer, so it is untouched by this.
+  suspended_gui.gui_list = gui_memoryOptimizer_getActiveGUIlist();
+  suspended_gui.gui_list_index = gui_state.gui_on_tab[gui_state.activeTabID].gui_list_index;
+  suspended_gui.active = true;
+
+  gui_memoryOptimizer_notifyAndClear(tabview, panel, img1, img2, &gui_state);
+}
+
+void gui_memoryOptimizer_resumeActiveTabs(lv_obj_t** tabview, lv_obj_t** panel, lv_obj_t** img1, lv_obj_t** img2) {
+  if (!suspended_gui.active) {
+    return;
+  }
+  omote_log_d("--- Will resume active tabs after full-screen overlay\r\n");
+
+  suspended_gui.active = false;
+  gui_memoryOptimizer_navigateToGUI(tabview, panel, img1, img2, suspended_gui.gui_list, suspended_gui.gui_list_index);
+}
+
+bool gui_memoryOptimizer_tabsSuspended() {
+  return suspended_gui.active;
+}
+
 
 void gui_memoryOptimizer_doContentCreation(lv_obj_t** tabview, lv_obj_t** panel, lv_obj_t** img1, lv_obj_t** img2, t_gui_state *gui_state) {
   // recreate the tabview
