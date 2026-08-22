@@ -253,6 +253,9 @@ void test_request_shape_time_only_when_no_active_device() {
 
 static omote_CommandResult makeWorstCaseSingleDeviceStateSync() {
   omote_CommandResult result = omote_CommandResult_init_zero;
+  // init_zero only initializes the union's first member (Ack); the string
+  // terminators the memsets below rely on are garbage on MinGW otherwise.
+  memset(&result.data, 0, sizeof(result.data));
   result.kind = omote_ResponseKind_STATE_SYNC;
   result.which_data = omote_CommandResult_state_sync_tag;
 
