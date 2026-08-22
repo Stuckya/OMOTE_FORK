@@ -365,10 +365,30 @@ void test_scene_sync_targets_empty_for_non_hub_scenes() {
   TEST_ASSERT_TRUE(Hub::hubSyncTargetsForScene("").empty());
 }
 
+void test_scene_volume_device_is_the_device_its_volume_keys_drive() {
+  // Shield's primary sync target is the media device, but VOLUP/MUTE go to the AVR.
+  TEST_ASSERT_EQUAL_STRING("DENON_AVR", Hub::hubVolumeDeviceForScene("Shield").c_str());
+  TEST_ASSERT_TRUE(Hub::hubVolumeDeviceForScene("TV").empty());
+  TEST_ASSERT_TRUE(Hub::hubVolumeDeviceForScene("Off").empty());
+}
+
+void test_volume_device_follows_the_active_scene() {
+  HubManager& manager = HubManager::getInstance();
+  initWithFakeTransport();
+
+  manager.setVolumeDevice("DENON_AVR");
+  TEST_ASSERT_EQUAL_STRING("DENON_AVR", manager.volumeDeviceId().c_str());
+
+  manager.setVolumeDevice("");
+  TEST_ASSERT_TRUE(manager.volumeDeviceId().empty());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_scene_sync_targets_map_to_priority_ordered_devices);
   RUN_TEST(test_scene_sync_targets_empty_for_non_hub_scenes);
+  RUN_TEST(test_scene_volume_device_is_the_device_its_volume_keys_drive);
+  RUN_TEST(test_volume_device_follows_the_active_scene);
   RUN_TEST(test_sync_state_requests_full_when_budget_covers_full);
   RUN_TEST(test_sync_state_requests_primary_device_for_mid_budget);
   RUN_TEST(test_sync_state_requests_time_only_for_tiny_budget);

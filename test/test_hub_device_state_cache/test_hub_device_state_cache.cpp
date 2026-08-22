@@ -92,6 +92,53 @@ void test_eight_entry_bound_drops_unknown_when_full() {
   TEST_ASSERT_TRUE(dev0->has_volume);
 }
 
+void test_volume_changed_by_reports_a_moved_level_for_a_known_device() {
+  HubDeviceStateCache cache;
+  cache.merge(makeDeviceWithVolume("DENON_AVR", -25.0f, false));
+
+  TEST_ASSERT_TRUE(cache.volumeChangedBy(makeDeviceWithVolume("DENON_AVR", -24.5f, false)));
+  TEST_ASSERT_TRUE(cache.volumeChangedBy(makeDeviceWithVolume("DENON_AVR", -25.0f, true)));  // mute flip
+}
+
+void test_volume_changed_by_is_silent_for_unchanged_or_first_sighted_volume() {
+  HubDeviceStateCache cache;
+  cache.merge(makeDeviceWithVolume("DENON_AVR", -25.0f, false));
+  cache.merge(makeDevice("LG_TV"));  // known, but never reported a volume
+
+  TEST_ASSERT_FALSE(cache.volumeChangedBy(makeDeviceWithVolume("DENON_AVR", -25.0f, false)));
+  TEST_ASSERT_FALSE(cache.volumeChangedBy(makeDevice("DENON_AVR")));          // snapshot without volume
+  TEST_ASSERT_FALSE(cache.volumeChangedBy(makeDeviceWithVolume("LG_TV", -10.0f, false)));  // first sighting
+  TEST_ASSERT_FALSE(cache.volumeChangedBy(makeDeviceWithVolume("APPLE_TV", -10.0f, false)));  // unknown device
+}
+
+void test_note_volume_makes_the_hubs_echo_of_a_displayed_level_a_non_change() {
+  HubDeviceStateCache cache;
+  omote_DeviceState withMedia = makeDeviceWithVolume("DENON_AVR", -25.0f, false);
+  withMedia.has_media_player = true;
+  cache.merge(withMedia);
+
+  cache.noteVolume("DENON_AVR", -24.5f, false);  // the VOLUME command result the remote just showed
+
+  TEST_ASSERT_FALSE(cache.volumeChangedBy(makeDeviceWithVolume("DENON_AVR", -24.5f, false)));
+  const omote_DeviceState* stored = cache.find("DENON_AVR");
+  TEST_ASSERT_NOT_NULL(stored);
+  TEST_ASSERT_TRUE(stored->has_media_player);  // the rest of the record survives the note
+  TEST_ASSERT_EQUAL_FLOAT(-24.5f, stored->volume.level);
+}
+
+void test_note_volume_for_an_unknown_device_seeds_its_record() {
+  HubDeviceStateCache cache;
+
+  cache.noteVolume("DENON_AVR", -24.5f, true);
+
+  const omote_DeviceState* stored = cache.find("DENON_AVR");
+  TEST_ASSERT_NOT_NULL(stored);
+  TEST_ASSERT_TRUE(stored->has_volume);
+  TEST_ASSERT_TRUE(stored->volume.is_muted);
+  TEST_ASSERT_FALSE(cache.volumeChangedBy(makeDeviceWithVolume("DENON_AVR", -24.5f, true)));
+  TEST_ASSERT_TRUE(cache.volumeChangedBy(makeDeviceWithVolume("DENON_AVR", -24.0f, true)));
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_insert_stores_device);
@@ -99,5 +146,9 @@ int main() {
   RUN_TEST(test_preserves_other_devices);
   RUN_TEST(test_ignores_empty_device_id);
   RUN_TEST(test_eight_entry_bound_drops_unknown_when_full);
+  RUN_TEST(test_volume_changed_by_reports_a_moved_level_for_a_known_device);
+  RUN_TEST(test_volume_changed_by_is_silent_for_unchanged_or_first_sighted_volume);
+  RUN_TEST(test_note_volume_makes_the_hubs_echo_of_a_displayed_level_a_non_change);
+  RUN_TEST(test_note_volume_for_an_unknown_device_seeds_its_record);
   return UNITY_END();
 }
