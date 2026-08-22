@@ -147,6 +147,7 @@ void handleScene(uint16_t command, commandData commandData, std::string addition
   // Track which hub devices the active scene composes, so a wake state sync
   // requests the right per-device snapshot for the transport's budget.
   HubManager::getInstance().setSyncTargetDevices(Hub::hubSyncTargetsForScene(scene_name));
+  HubManager::getInstance().setVolumeDevice(Hub::hubVolumeDeviceForScene(scene_name));
 #endif
 
   if (SceneLabel != NULL) {lv_label_set_text(SceneLabel, gui_memoryOptimizer_getActiveSceneName().c_str());}

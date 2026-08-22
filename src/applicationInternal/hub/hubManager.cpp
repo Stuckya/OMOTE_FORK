@@ -149,6 +149,14 @@ void HubManager::setSyncTargetDevices(const std::vector<std::string>& orderedDev
   syncTargetDevices = orderedDevices;
 }
 
+void HubManager::setVolumeDevice(const std::string& deviceId) {
+  volumeDevice = deviceId;
+}
+
+const std::string& HubManager::volumeDeviceId() const {
+  return volumeDevice;
+}
+
 void HubManager::resetStateSyncTimer() {
   stateSyncStartTime = millis();
 }

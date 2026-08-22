@@ -19,4 +19,14 @@ inline std::vector<std::string> hubSyncTargetsForScene(const std::string& sceneN
   return {};
 }
 
+// The hub device a scene's volume keys drive — not necessarily its primary
+// sync target (Shield's primary is the media device; VOLUP/MUTE go to the AVR).
+// Empty when the scene's volume is not hub-driven.
+inline std::string hubVolumeDeviceForScene(const std::string& sceneName) {
+  if (sceneName == "Shield") {
+    return "DENON_AVR";
+  }
+  return "";
+}
+
 }  // namespace Hub

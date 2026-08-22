@@ -360,22 +360,36 @@ void receiveMQTTmessage_cb(std::string topic, std::string payload) {
 #include "applicationInternal/gui/guiNotification.h"
 #include <hubDeviceStateCache.h>
 
-// Latest per-device snapshots from the hub. Populated by the bulk StateSync
-// merge; surfacing cached state to the UI lands lockstep with hub
-// publish_device_state and is intentionally not wired here yet.
+// Latest per-device snapshots from the hub, fed by wake syncs and by pushes
+// when the hub runs with publish_device_state on.
 static HubDeviceStateCache hubDeviceStateCache;
+
+// A wake-fill snapshot (first sighting) merges silently; a later push that moves
+// the active scene's volume device is the one out-of-band fact worth showing.
+static void mergePushedDeviceState(const omote_DeviceState& state) {
+  const bool volumeMoved = hubDeviceStateCache.volumeChangedBy(state);
+  hubDeviceStateCache.merge(state);
+  if (!volumeMoved || HubManager::getInstance().volumeDeviceId() != state.device_id) {
+    return;
+  }
+  GuiNotification::showVolumeNotification(state.volume.level, state.volume.is_muted);
+}
 
 void handleHubCommandResult(const omote_CommandResult& result) {
   omote_log_d("Received CommandResult: kind=%d\r\n", result.kind);
-  
+
   switch (result.kind) {
     case omote_ResponseKind_VOLUME: {
       if (result.which_data == omote_CommandResult_volume_tag) {
         const auto& volume = result.data.volume;
         omote_log_d("Volume update: level=%.1f, muted=%s\r\n",
                    volume.level, volume.is_muted ? "true" : "false");
-        
+
         GuiNotification::showVolumeNotification(volume.level, volume.is_muted);
+        // The hub echoes this level as a device-state push moments later; noting
+        // it keeps that echo from re-raising the notification just shown.
+        hubDeviceStateCache.noteVolume(
+          HubManager::getInstance().volumeDeviceId(), volume.level, volume.is_muted);
       }
       break;
     }
@@ -417,10 +431,8 @@ void handleHubCommandResult(const omote_CommandResult& result) {
                    state_sync.time.timestamp, state_sync.time.timezone_offset);
       }
 
-      // Merge each snapshot silently: the cache ignores empty device ids and the
-      // bulk wake sync deliberately raises no per-device volume/power UI.
       for (pb_size_t i = 0; i < state_sync.devices_count; i++) {
-        hubDeviceStateCache.merge(state_sync.devices[i]);
+        mergePushedDeviceState(state_sync.devices[i]);
       }
 
       omote_log_d("State sync: has_time=%s, devices=%d\r\n",

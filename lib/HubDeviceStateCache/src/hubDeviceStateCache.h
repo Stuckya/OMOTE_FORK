@@ -15,6 +15,14 @@ public:
   // (empty device_id) or dropped (cache full and device unknown).
   bool merge(const omote_DeviceState& state);
 
+  // True when a device whose volume is already cached reports a different
+  // level or mute. A first sighting is the silent wake fill, not a change.
+  bool volumeChangedBy(const omote_DeviceState& incoming) const;
+
+  // Record a level the remote already displayed from its own command result,
+  // so the hub's pushed echo of it reads as unchanged. Seeds an unknown device.
+  void noteVolume(const std::string& deviceId, float level, bool isMuted);
+
   const omote_DeviceState* find(const std::string& deviceId) const;
   size_t size() const;
   void clear();
