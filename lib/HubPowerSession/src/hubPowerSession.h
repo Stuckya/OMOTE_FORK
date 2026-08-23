@@ -9,7 +9,9 @@
 class HubPowerSession {
 public:
   static const size_t CAPACITY = 8;
-  static const unsigned long TIMEOUT_MS = 5000;
+  // Matches the hub's own power verification budget (20 polls at 0.5s for an
+  // LG TV): giving up sooner would name a straggler the hub is still watching.
+  static const unsigned long TIMEOUT_MS = 10000;
 
   enum class Phase { IDLE, IN_PROGRESS, RESOLVED, TIMED_OUT };
   enum class Outcome { PENDING, CONFIRMED, FAILED };
