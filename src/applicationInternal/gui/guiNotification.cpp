@@ -12,6 +12,10 @@ static lv_obj_t* volume_level_label = nullptr;
 static lv_obj_t* volume_bar = nullptr;
 static lv_obj_t* power_segments[HubPowerSession::CAPACITY] = {};
 static lv_obj_t* action_row = nullptr;
+// A warning that arrived mid-slide. The sleep timer's warning edge is consumed
+// once, so dropping it here would lose the only notice before an automatic
+// power-off.
+static bool warning_pending = false;
 static lv_timer_t* hide_timer = nullptr;
 static lv_anim_t slide_anim;
 
@@ -47,6 +51,7 @@ static int auto_hide_delay = AUTO_HIDE_DELAY;
 
 static void slide_anim_cb(void* obj, int32_t value);
 static void slide_down_complete_cb(lv_anim_t* anim);
+static void flushPendingWarning();
 static void slide_up_complete_cb(lv_anim_t* anim);
 static void auto_hide_timer_cb(lv_timer_t* timer);
 static void notification_gesture_cb(lv_event_t* e);
@@ -186,12 +191,14 @@ static void slide_down_complete_cb(lv_anim_t* anim) {
     animation_in_progress = false;
     notification_visible = true;
     armAutoHide();
+    flushPendingWarning();
 }
 
 static void slide_up_complete_cb(lv_anim_t* anim) {
     animation_in_progress = false;
     notification_visible = false;
     lv_obj_add_flag(notification_container, LV_OBJ_FLAG_HIDDEN);
+    flushPendingWarning();
 }
 
 static void auto_hide_timer_cb(lv_timer_t* timer) {
@@ -227,22 +234,35 @@ static void showOnlyWidgetsFor(NotificationType type) {
     lv_label_set_recolor(notification_label, false);
 }
 
+static void alignContent() {
+    if (current_height == NOTIFICATION_HEIGHT_SINGLE) {
+        lv_obj_align(notification_label, LV_ALIGN_LEFT_MID, 0, 0);
+        return;
+    }
+    lv_obj_align(notification_label, LV_ALIGN_TOP_LEFT, 0, 8);
+    lv_obj_align(volume_level_label, LV_ALIGN_TOP_RIGHT, -8, 8);
+}
+
 static void layoutContainer() {
     lv_obj_set_size(notification_container, SCR_WIDTH, current_height);
     lv_obj_set_pos(notification_container, 0, statusbarTop + statusbarHeight - current_height);
+    alignContent();
+    lv_obj_invalidate(notification_container);
+}
 
-    if (current_height == NOTIFICATION_HEIGHT_SINGLE) {
-        lv_obj_align(notification_label, LV_ALIGN_LEFT_MID, 0, 0);
-    } else {
-        lv_obj_align(notification_label, LV_ALIGN_TOP_LEFT, 0, 8);
-        lv_obj_align(volume_level_label, LV_ALIGN_TOP_RIGHT, -8, 8);
-    }
-
+// Resize a banner that is already on screen. Notification kinds differ in
+// height, so replacing one in place has to resize it or the new content is laid
+// out against the old box.
+static void resizeShownContainer() {
+    lv_obj_set_size(notification_container, SCR_WIDTH, current_height);
+    lv_obj_set_pos(notification_container, 0, statusbarTop + statusbarHeight);
+    alignContent();
     lv_obj_invalidate(notification_container);
 }
 
 static void showNotification() {
     if (notification_visible && !animation_in_progress) {
+        resizeShownContainer();
         armAutoHide();
         return;
     }
@@ -451,6 +471,13 @@ void showPowerSession(const HubPowerSession& session) {
 }
 
 void showSleepWarning() {
+    if (animation_in_progress) {
+        // Retried when the slide settles: showNotification would drop it, and
+        // the caller has already spent its one-shot warning edge.
+        warning_pending = true;
+        return;
+    }
+
     beginNotification(NotificationType::SLEEP_WARNING, NOTIFICATION_HEIGHT_ACTIONS,
                       HOLD_UNTIL_UPDATED);
 
@@ -460,6 +487,14 @@ void showSleepWarning() {
     showNotification();
 
     omote_log_d("Sleep timer warning shown\r\n");
+}
+
+static void flushPendingWarning() {
+    if (!warning_pending) {
+        return;
+    }
+    warning_pending = false;
+    showSleepWarning();
 }
 
 void showMessageNotification(const std::string& message) {

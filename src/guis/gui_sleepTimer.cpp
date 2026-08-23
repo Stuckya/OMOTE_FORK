@@ -1,5 +1,7 @@
 #include "guis/gui_sleepTimer.h"
 
+#if (ENABLE_HUB_COMMUNICATION > 0)
+
 #include <ctime>
 #include <hubSleepTimer.h>
 
@@ -141,6 +143,12 @@ void build_armed(lv_obj_t *root) {
 }  // namespace
 
 void gui_sleepTimer_show(void) {
+  // Modals sit below the status bar, so the chip stays tappable while another
+  // one owns the screen. Stacking a second overlay there would resume that
+  // one's tabs underneath it when this sheet closed; leave it alone instead.
+  if (overlay == nullptr && guis_tabsSuspended()) {
+    return;
+  }
   guis_suspendActiveTabs();
   destroy_overlay();
 
@@ -160,3 +168,12 @@ void gui_sleepTimer_hide(void) {
 }
 
 void gui_sleepTimer_dismiss_overlay(void) { destroy_overlay(); }
+
+#else
+
+// The countdown is the hub's; with no hub there is nothing to arm or show.
+void gui_sleepTimer_show(void) {}
+void gui_sleepTimer_hide(void) {}
+void gui_sleepTimer_dismiss_overlay(void) {}
+
+#endif

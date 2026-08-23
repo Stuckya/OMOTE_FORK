@@ -43,6 +43,8 @@ void guis_doTabCreationForSpecificGUI(GUIlists GUIlist, int gui_list_index);
 void guis_doTabCreationForNavigateToLastActiveGUIofPreviousGUIlist();
 // used by gui_pairing.cpp to free the tab tree while the pairing overlay is up
 void guis_suspendActiveTabs();
+// True while a modal owns the screen (the tabs behind it are torn down).
+bool guis_tabsSuspended();
 void guis_resumeActiveTabs();
 // used by guiMemoryOptimizer.cpp and sceneHandler.cpp
 void setActiveTab(uint32_t index, lv_anim_enable_t anim_en, bool send_tab_changed_event = false);

@@ -385,6 +385,10 @@ void guis_doTabCreationForNavigateToLastActiveGUIofPreviousGUIlist() {
   doLogMemoryUsage();
 }
 // 6. suspend/resume the tab tree while a full-screen overlay owns the screen
+bool guis_tabsSuspended() {
+  return gui_memoryOptimizer_tabsSuspended();
+}
+
 void guis_suspendActiveTabs() {
   gui_memoryOptimizer_suspendActiveTabs(&tabview, &panel, &img1, &img2);
   doLogMemoryUsage();

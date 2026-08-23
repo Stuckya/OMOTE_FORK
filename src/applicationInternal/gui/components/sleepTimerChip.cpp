@@ -1,5 +1,7 @@
 #include "applicationInternal/gui/components/sleepTimerChip.h"
 
+#if (ENABLE_HUB_COMMUNICATION > 0)
+
 #include "applicationInternal/gui/guiTheme.h"
 #include "guis/gui_sleepTimer.h"
 
@@ -45,3 +47,10 @@ void setLabelSleepTimer(const std::string &remaining) {
   lv_label_set_text(chipLabel, remaining.c_str());
   lv_obj_clear_flag(chip, LV_OBJ_FLAG_HIDDEN);
 }
+
+#else
+
+void createSleepTimerChip(lv_obj_t *) {}
+void setLabelSleepTimer(const std::string &) {}
+
+#endif
