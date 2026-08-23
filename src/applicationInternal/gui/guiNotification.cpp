@@ -1,5 +1,6 @@
 #include "guiNotification.h"
 #include "guiBase.h"
+#include "applicationInternal/hub/sleepTimer.h"
 #include "applicationInternal/omote_log.h"
 
 namespace GuiNotification {
@@ -9,6 +10,7 @@ static lv_obj_t* notification_label = nullptr;
 static lv_obj_t* volume_level_label = nullptr;
 static lv_obj_t* volume_bar = nullptr;
 static lv_obj_t* power_segments[HubPowerSession::CAPACITY] = {};
+static lv_obj_t* action_row = nullptr;
 static lv_timer_t* hide_timer = nullptr;
 static lv_anim_t slide_anim;
 
@@ -18,6 +20,7 @@ static const int CONTENT_PADDING = 16;
 static const int BAR_HEIGHT = 3;
 static const int BAR_BOTTOM_INSET = 8;
 static const int SEGMENT_GAP = 3;
+static const int ACTION_HEIGHT = 30;
 static const int SLIDE_DURATION = 300;
 static const int AUTO_HIDE_DELAY = 3000;
 static const int RAPID_UPDATE_DELAY = 1500;
@@ -54,6 +57,43 @@ static lv_obj_t* createSegment(lv_obj_t* parent) {
     lv_obj_clear_flag(segment, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(segment, LV_OBJ_FLAG_HIDDEN);
     return segment;
+}
+
+static void createAction(lv_obj_t* parent, const char* text, uint32_t color,
+                         lv_event_cb_t callback) {
+    lv_obj_t* button = lv_btn_create(parent);
+    lv_obj_remove_style_all(button);
+    lv_obj_set_flex_grow(button, 1);
+    lv_obj_set_height(button, ACTION_HEIGHT);
+    lv_obj_add_event_cb(button, callback, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t* label = lv_label_create(button);
+    lv_label_set_text(label, text);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_color(label, lv_color_hex(color), LV_PART_MAIN);
+    lv_obj_center(label);
+}
+
+static void dismiss_event_cb(lv_event_t*) {
+    hideNotification();
+}
+
+static void extend_event_cb(lv_event_t*) {
+    Hub::SleepTimer::extendByDefault();
+    hideNotification();
+}
+
+static void createActionRow() {
+    action_row = lv_obj_create(notification_container);
+    lv_obj_remove_style_all(action_row);
+    lv_obj_set_size(action_row, SCR_WIDTH - 2 * CONTENT_PADDING, ACTION_HEIGHT);
+    lv_obj_align(action_row, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_flex_flow(action_row, LV_FLEX_FLOW_ROW);
+    lv_obj_clear_flag(action_row, LV_OBJ_FLAG_SCROLLABLE);
+    // The row must not swallow the taps meant for its buttons (v8 has no bubbling).
+    lv_obj_clear_flag(action_row, LV_OBJ_FLAG_CLICKABLE);
+    createAction(action_row, "Dismiss", COLOR_MUTED, dismiss_event_cb);
+    createAction(action_row, "+15 min", COLOR_BUSY, extend_event_cb);
+    lv_obj_add_flag(action_row, LV_OBJ_FLAG_HIDDEN);
 }
 
 void init() {
@@ -110,6 +150,8 @@ void init() {
     for (size_t i = 0; i < HubPowerSession::CAPACITY; i++) {
         power_segments[i] = createSegment(notification_container);
     }
+
+    createActionRow();
 
     lv_obj_add_event_cb(notification_container, notification_gesture_cb, LV_EVENT_GESTURE, nullptr);
     lv_obj_clear_flag(notification_container, LV_OBJ_FLAG_GESTURE_BUBBLE);
@@ -181,6 +223,7 @@ static void setHidden(lv_obj_t* obj, bool hidden) {
 static void showOnlyWidgetsFor(NotificationType type) {
     setHidden(volume_bar, type != NotificationType::VOLUME);
     setHidden(volume_level_label, type != NotificationType::VOLUME);
+    setHidden(action_row, type != NotificationType::SLEEP_WARNING);
     for (size_t i = 0; i < HubPowerSession::CAPACITY; i++) {
         setHidden(power_segments[i], true);
     }
@@ -408,6 +451,18 @@ void showPowerSession(const HubPowerSession& session) {
     showNotification();
 
     omote_log_d("Power session: %s\r\n", session.headline().c_str());
+}
+
+void showSleepWarning() {
+    beginNotification(NotificationType::SLEEP_WARNING, NOTIFICATION_HEIGHT_DOUBLE,
+                      HOLD_UNTIL_UPDATED);
+
+    lv_label_set_text(notification_label, LV_SYMBOL_POWER "  Powering off in 1 min");
+    lv_obj_set_style_text_color(notification_label, lv_color_hex(COLOR_WARN), LV_PART_MAIN);
+
+    showNotification();
+
+    omote_log_d("Sleep timer warning shown\r\n");
 }
 
 void showMessageNotification(const std::string& message) {

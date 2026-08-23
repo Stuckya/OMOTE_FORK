@@ -5,6 +5,7 @@
 #include "applicationInternal/memoryUsage.h"
 #include "applicationInternal/gui/guiMemoryOptimizer.h"
 #include "applicationInternal/gui/guiNotification.h"
+#include "applicationInternal/gui/components/sleepTimerChip.h"
 // for changing to scene Selection gui
 #include "applicationInternal/commandHandler.h"
 #include "applicationInternal/omote_log.h"
@@ -279,13 +280,26 @@ void init_gui_status_bar() {
   lv_obj_align(BluetoothLabel, LV_ALIGN_TOP_LEFT, 70, labelsPositionTopStatusbar);
   lv_obj_set_style_text_font(BluetoothLabel, &lv_font_montserrat_12, LV_PART_MAIN);
   // Scene ------------------------------------------------------------------------
-  SceneLabel = lv_label_create(statusbar);
+  // Scene name and sleep chip share a centered row, so the pair stays centered
+  // whatever the scene is called.
+  lv_obj_t* sceneRow = lv_obj_create(statusbar);
+  lv_obj_remove_style_all(sceneRow);
+  lv_obj_set_size(sceneRow, LV_SIZE_CONTENT, statusbarHeight);
+  lv_obj_align(sceneRow, LV_ALIGN_TOP_MID, 0, 0);
+  lv_obj_set_flex_flow(sceneRow, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(sceneRow, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_column(sceneRow, 5, LV_PART_MAIN);
+  lv_obj_clear_flag(sceneRow, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_clear_flag(sceneRow, LV_OBJ_FLAG_SCROLLABLE);
+
+  SceneLabel = lv_label_create(sceneRow);
   lv_label_set_text(SceneLabel, "");
-  lv_obj_align(SceneLabel, LV_ALIGN_TOP_MID, 0, labelsPositionTopStatusbar);
   lv_obj_set_style_text_font(SceneLabel, &lv_font_montserrat_12, LV_PART_MAIN);
   lv_obj_add_flag(SceneLabel, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_user_data(SceneLabel,(void *)(intptr_t)0);
   lv_obj_add_event_cb(SceneLabel, sceneLabel_or_pageIndicator_event_cb, LV_EVENT_CLICKED, NULL);
+
+  createSleepTimerChip(sceneRow);
 
   // Battery ----------------------------------------------------------------------
   BattPercentageLabel = lv_label_create(statusbar);

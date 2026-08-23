@@ -125,6 +125,10 @@ void updateTimeOnGUI() {
   lv_label_set_text(TimeLabel, time_buffer);
 }
 
+int32_t get_secondsWestOfUtc(void) { return g_seconds_west_of_utc; }
+
+bool isDeviceClockSet(void) { return isTimeSetOrValid(time(NULL)); }
+
 void setTime(uint32_t timestamp_utc, int32_t seconds_west_of_utc) {
   // Keep device clock in UTC
   g_seconds_west_of_utc = seconds_west_of_utc;

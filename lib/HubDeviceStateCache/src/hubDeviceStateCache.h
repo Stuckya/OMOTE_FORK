@@ -24,6 +24,10 @@ public:
   void noteVolume(const std::string& deviceId, float level, bool isMuted);
 
   const omote_DeviceState* find(const std::string& deviceId) const;
+
+  // Merge-order walk for callers that must act on every known device, e.g.
+  // naming what a hub-fired power-off is turning off. Null past the end.
+  const omote_DeviceState* at(size_t index) const;
   size_t size() const;
   void clear();
 

@@ -12,3 +12,11 @@
 // own buttons, so a header X would be a redundant second cancel).
 lv_obj_t *modalShell_create(const std::string &name, const std::string &sub,
                             lv_event_cb_t on_cancel);
+
+// As above, with a picture in the header square instead of the device glyph.
+// The image is recolored, so an alpha-only asset is what belongs here.
+lv_obj_t *modalShell_createWithIcon(const std::string &name,
+                                    const std::string &sub,
+                                    lv_event_cb_t on_cancel,
+                                    const lv_img_dsc_t *icon,
+                                    uint32_t icon_color);

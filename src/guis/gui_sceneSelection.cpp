@@ -6,6 +6,69 @@
 #include "applicationInternal/commandHandler.h"
 #include "applicationInternal/omote_log.h"
 #include "guis/gui_sceneSelection.h"
+#if (ENABLE_HUB_COMMUNICATION > 0)
+#include "applicationInternal/gui/guiTheme.h"
+#include "applicationInternal/hub/sleepTimer.h"
+#include "guis/gui_sleepTimer.h"
+
+LV_IMG_DECLARE(sleep_moon_medium);
+
+static void sleepTimerRow_event_cb(lv_event_t* e) {
+  gui_sleepTimer_show();
+}
+
+static lv_obj_t* sleepTimerRowButton = NULL;
+static lv_obj_t* sleepTimerRowMoon = NULL;
+static lv_obj_t* sleepTimerRowLabel = NULL;
+
+static void paintSleepTimerRow() {
+  if (sleepTimerRowButton == NULL) {
+    return;
+  }
+  const bool armed = Hub::SleepTimer::isArmed();
+  const uint32_t tint = armed ? 0x4ea1ff : GuiTheme::kTextDim;
+  lv_obj_set_style_bg_color(sleepTimerRowButton,
+                            GuiTheme::color(armed ? GuiTheme::kBlue : GuiTheme::kSurface2), LV_PART_MAIN);
+  lv_obj_set_style_bg_opa(sleepTimerRowButton, armed ? LV_OPA_20 : LV_OPA_COVER, LV_PART_MAIN);
+  lv_obj_set_style_img_recolor(sleepTimerRowMoon, GuiTheme::color(tint), LV_PART_MAIN);
+  lv_label_set_text(sleepTimerRowLabel,
+                    armed ? Hub::SleepTimer::indicatorText().c_str() : "Sleep Timer");
+  lv_obj_set_style_text_color(sleepTimerRowLabel, GuiTheme::color(tint), LV_PART_MAIN);
+}
+
+void gui_sceneSelection_refreshSleepTimerRow(void) { paintSleepTimerRow(); }
+
+// "All Off, later" belongs beside All Off -- but no virtual All Off exists (the
+// physical Off key owns it), so the timer takes the row.
+static void createSleepTimerRow(lv_obj_t* tab) {
+  lv_obj_t* button = lv_btn_create(tab);
+  lv_obj_set_size(button, lv_pct(100), 42);
+  lv_obj_set_style_radius(button, 30, LV_PART_MAIN);
+  lv_obj_add_event_cb(button, sleepTimerRow_event_cb, LV_EVENT_CLICKED, NULL);
+
+  lv_obj_t* row = lv_obj_create(button);
+  lv_obj_remove_style_all(row);
+  lv_obj_set_size(row, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_center(row);
+  lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_column(row, 6, LV_PART_MAIN);
+  lv_obj_clear_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+  lv_obj_t* moon = lv_img_create(row);
+  lv_img_set_src(moon, &sleep_moon_medium);
+  lv_obj_set_style_img_recolor_opa(moon, LV_OPA_COVER, LV_PART_MAIN);
+
+  lv_obj_t* label = lv_label_create(row);
+
+  sleepTimerRowButton = button;
+  sleepTimerRowMoon = moon;
+  sleepTimerRowLabel = label;
+  paintSleepTimerRow();
+}
+#else
+void gui_sceneSelection_refreshSleepTimerRow(void) {}
+#endif
 
 static uint16_t activate_scene_command;
 static bool doForceScene;
@@ -117,13 +180,20 @@ void create_tab_content_sceneSelection(lv_obj_t* tab) {
       lv_obj_center(label);
       }
   }
-  
+
+  #if (ENABLE_HUB_COMMUNICATION > 0)
+  createSleepTimerRow(tab);
+  #endif
 }
 
 void notify_tab_before_delete_sceneSelection(void) {
   // remember to set all pointers to lvgl objects to NULL if they might be accessed from outside.
   // They must check if object is NULL and must not use it if so
-  
+  #if (ENABLE_HUB_COMMUNICATION > 0)
+  sleepTimerRowButton = NULL;
+  sleepTimerRowMoon = NULL;
+  sleepTimerRowLabel = NULL;
+  #endif
 }
 
 void register_gui_sceneSelection(void){

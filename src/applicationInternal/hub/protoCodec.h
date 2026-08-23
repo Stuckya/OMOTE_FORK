@@ -7,6 +7,9 @@
 
 namespace Hub {
 
+// The pseudo device id the OMOTE addresses hub-level requests to.
+static const char* const HUB_DEVICE_ID = "HUB";
+
 /**
  * Codec for encoding and decoding protobuf messages using NanoPB.
  * 
@@ -48,6 +51,15 @@ public:
         size_t data_len = 0
     );
     
+    /**
+     * Build a sleep-timer request. The timer is the hub's, not a device's, so
+     * these are addressed to "HUB"; minutes is ignored for CANCEL.
+     */
+    static omote_RemoteEvent createSleepTimerEvent(
+        omote_OmoteCommand command,
+        uint16_t minutes
+    );
+
     /**
      * Map string command to protobuf enum.
      */
