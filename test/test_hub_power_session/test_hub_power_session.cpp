@@ -187,6 +187,44 @@ void test_anonymous_error_takes_over_the_headline_while_in_progress() {
   TEST_ASSERT_EQUAL_STRING("All devices on", session.headline().c_str());
 }
 
+void test_anonymous_error_fails_one_slot_immediately() {
+  HubPowerSession session = shieldSceneSession();
+  session.observe("ANDROID_TV", true);
+
+  session.noteError("Denon AVR: device unreachable");
+
+  TEST_ASSERT_EQUAL(Outcome::CONFIRMED, session.slotOutcome(0));
+  TEST_ASSERT_EQUAL(Outcome::FAILED, session.slotOutcome(1));
+  TEST_ASSERT_EQUAL(Outcome::PENDING, session.slotOutcome(2));
+  TEST_ASSERT_EQUAL(Phase::IN_PROGRESS, session.phase());
+  TEST_ASSERT_EQUAL(Outcome::PENDING, session.at(1).outcome);  // no device is blamed
+}
+
+void test_anonymous_error_is_not_double_counted_at_timeout() {
+  HubPowerSession session = shieldSceneSession();
+  session.noteError("Denon AVR: device unreachable");
+  session.observe("ANDROID_TV", true);
+  session.observe("LG_TV", true);
+
+  session.tick(T0 + HubPowerSession::TIMEOUT_MS);
+
+  TEST_ASSERT_EQUAL(Outcome::CONFIRMED, session.slotOutcome(0));
+  TEST_ASSERT_EQUAL(Outcome::CONFIRMED, session.slotOutcome(1));
+  TEST_ASSERT_EQUAL(Outcome::FAILED, session.slotOutcome(2));
+  TEST_ASSERT_EQUAL_STRING("Denon AVR: device unreachable", session.headline().c_str());
+}
+
+void test_anonymous_error_slot_clears_when_every_device_confirms() {
+  HubPowerSession session = shieldSceneSession();
+  session.noteError("Denon AVR: device unreachable");
+  session.observe("ANDROID_TV", true);
+  session.observe("DENON_AVR", true);
+  session.observe("LG_TV", true);
+
+  TEST_ASSERT_EQUAL(Phase::RESOLVED, session.phase());
+  TEST_ASSERT_EQUAL(Outcome::CONFIRMED, session.slotOutcome(2));
+}
+
 void test_expect_after_a_finished_session_starts_a_fresh_one() {
   HubPowerSession session;
   session.expect("LG_TV", "LG TV", true, false, T0);
@@ -236,6 +274,9 @@ int main() {
   RUN_TEST(test_slots_place_failures_after_confirmations_at_timeout);
   RUN_TEST(test_power_off_session_uses_off_wording);
   RUN_TEST(test_anonymous_error_takes_over_the_headline_while_in_progress);
+  RUN_TEST(test_anonymous_error_fails_one_slot_immediately);
+  RUN_TEST(test_anonymous_error_is_not_double_counted_at_timeout);
+  RUN_TEST(test_anonymous_error_slot_clears_when_every_device_confirms);
   RUN_TEST(test_expect_after_a_finished_session_starts_a_fresh_one);
   RUN_TEST(test_timeout_is_measured_from_the_session_open);
   RUN_TEST(test_reset_returns_to_idle);
