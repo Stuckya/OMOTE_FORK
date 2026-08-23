@@ -64,13 +64,6 @@ void arc_changed_cb(lv_event_t *event) {
   render(state);
 }
 
-void arc_released_cb(lv_event_t *event) {
-  State *state = (State *)lv_event_get_user_data(event);
-  if (state->config.onReleased != nullptr) {
-    state->config.onReleased((uint16_t)lv_arc_get_value(state->arc));
-  }
-}
-
 void arc_deleted_cb(lv_event_t *event) {
   delete (State *)lv_event_get_user_data(event);
 }
@@ -140,7 +133,6 @@ lv_obj_t *create(lv_obj_t *parent, const Config &config) {
 
   state->valueLabel = valueLabel;
   lv_obj_add_event_cb(arc, arc_changed_cb, LV_EVENT_VALUE_CHANGED, state);
-  lv_obj_add_event_cb(arc, arc_released_cb, LV_EVENT_RELEASED, state);
   lv_obj_add_event_cb(arc, arc_deleted_cb, LV_EVENT_DELETE, state);
   render(state);
   return arc;

@@ -8,8 +8,6 @@
 // drag tracking is the widget's own.
 namespace RingPicker {
 
-typedef void (*ReleasedCallback)(uint16_t value);
-
 struct Config {
   // The ring is drawn from zero so the smallest selectable value still reads as
   // progress; minValue is the floor the snap enforces, not where the arc starts.
@@ -18,7 +16,6 @@ struct Config {
   uint16_t step;
   uint16_t initialValue;
   const char *unit;
-  ReleasedCallback onReleased;
 };
 
 lv_obj_t *create(lv_obj_t *parent, const Config &config);

@@ -20,6 +20,7 @@ namespace {
 
 
 lv_obj_t *overlay = nullptr;
+lv_obj_t *pickerRing = nullptr;
 lv_obj_t *countdownLabel = nullptr;
 lv_obj_t *offAtLabel = nullptr;
 
@@ -51,6 +52,7 @@ void destroy_overlay() {
     lv_obj_del(overlay);
   }
   overlay = nullptr;
+  pickerRing = nullptr;
   countdownLabel = nullptr;
   offAtLabel = nullptr;
   Hub::SleepTimer::setRepaintCallback(nullptr);
@@ -58,8 +60,11 @@ void destroy_overlay() {
 
 void close_event_cb(lv_event_t *) { gui_sleepTimer_hide(); }
 
-void ring_released_cb(uint16_t minutes) {
-  Hub::SleepTimer::arm(minutes);
+void confirm_event_cb(lv_event_t *) {
+  if (pickerRing == nullptr) {
+    return;
+  }
+  Hub::SleepTimer::arm(RingPicker::value(pickerRing));
   gui_sleepTimer_hide();
 }
 
@@ -91,8 +96,12 @@ void build_picker(lv_obj_t *root) {
   config.step = HubSleepTimer::STEP_MINUTES;
   config.initialValue = HubSleepTimer::DEFAULT_MINUTES;
   config.unit = "min";
-  config.onReleased = ring_released_cb;
-  RingPicker::create(root, config);
+  pickerRing = RingPicker::create(root, config);
+
+  // Dragging only chooses; arming is its own deliberate tap, so a slip on the
+  // ring cannot start a countdown you did not mean.
+  GuiTheme::spacer(root);
+  GuiTheme::primaryButton(root, "Confirm", GuiTheme::kBlue, confirm_event_cb);
 }
 
 void build_armed(lv_obj_t *root) {
