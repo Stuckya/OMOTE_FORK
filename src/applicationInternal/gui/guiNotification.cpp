@@ -17,11 +17,15 @@ static lv_anim_t slide_anim;
 
 static const int NOTIFICATION_HEIGHT_SINGLE = 48;
 static const int NOTIFICATION_HEIGHT_DOUBLE = 80;
+// Tall enough for a headline plus a full-size action pair: the banner's actions
+// are the same buttons as the sleep sheet's, so they read the same everywhere.
+static const int NOTIFICATION_HEIGHT_ACTIONS = 104;
 static const int CONTENT_PADDING = 16;
 static const int BAR_HEIGHT = 3;
 static const int BAR_BOTTOM_INSET = 8;
 static const int SEGMENT_GAP = 3;
-static const int ACTION_HEIGHT = 30;
+static const int ACTION_HEIGHT = 40;
+static const int ACTION_GAP = 8;
 static const int SLIDE_DURATION = 300;
 static const int AUTO_HIDE_DELAY = 3000;
 static const int RAPID_UPDATE_DELAY = 1500;
@@ -71,15 +75,21 @@ static void extend_event_cb(lv_event_t*) {
 }
 
 static void createActionRow() {
-    action_row = GuiTheme::splitActionRow(notification_container, ACTION_HEIGHT);
-    // Full-bleed against the banner's bottom edge: the padding offset cancels
-    // the container's, so the divider spans the banner and clears the headline.
-    lv_obj_set_width(action_row, SCR_WIDTH);
-    lv_obj_align(action_row, LV_ALIGN_BOTTOM_MID, 0, CONTENT_PADDING);
+    action_row = GuiTheme::flexRow(notification_container, ACTION_GAP);
+    lv_obj_set_width(action_row, SCR_WIDTH - 2 * CONTENT_PADDING);
+    lv_obj_set_height(action_row, ACTION_HEIGHT);
+    lv_obj_align(action_row, LV_ALIGN_BOTTOM_MID, 0, 0);
+
     // Not "Dismiss": a swipe up already hides any banner, so the slot answers
     // the question the warning actually raises -- stop it, or push it back.
-    GuiTheme::splitAction(action_row, "Cancel", GuiTheme::kRed, cancel_event_cb);
-    GuiTheme::splitAction(action_row, "+15 min", GuiTheme::kBlue, extend_event_cb);
+    lv_obj_t* cancel = GuiTheme::tintedButton(action_row, "Cancel", GuiTheme::kRed,
+                                              LV_OPA_20, GuiTheme::kRed, cancel_event_cb);
+    lv_obj_set_flex_grow(cancel, 1);
+    lv_obj_set_height(cancel, ACTION_HEIGHT);
+    lv_obj_t* extend = GuiTheme::tintedButton(action_row, "+15 min", GuiTheme::kSurface2,
+                                              LV_OPA_COVER, GuiTheme::kBlue, extend_event_cb);
+    lv_obj_set_flex_grow(extend, 1);
+    lv_obj_set_height(extend, ACTION_HEIGHT);
     lv_obj_add_flag(action_row, LV_OBJ_FLAG_HIDDEN);
 }
 
@@ -441,7 +451,7 @@ void showPowerSession(const HubPowerSession& session) {
 }
 
 void showSleepWarning() {
-    beginNotification(NotificationType::SLEEP_WARNING, NOTIFICATION_HEIGHT_DOUBLE,
+    beginNotification(NotificationType::SLEEP_WARNING, NOTIFICATION_HEIGHT_ACTIONS,
                       HOLD_UNTIL_UPDATED);
 
     lv_label_set_text(notification_label, LV_SYMBOL_POWER "  Powering off in 1 min");
