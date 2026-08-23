@@ -26,9 +26,12 @@ static void paintSleepTimerRow() {
     return;
   }
   const bool armed = Hub::SleepTimer::isArmed();
-  const uint32_t tint = armed ? 0x4ea1ff : GuiTheme::kTextDim;
+  // Full-strength text on a recessed fill: the timer is not a scene, and a
+  // dimmed label beside the scene pills would read as disabled rather than as
+  // a different kind of control.
+  const uint32_t tint = armed ? 0x4ea1ff : GuiTheme::kWhite;
   lv_obj_set_style_bg_color(sleepTimerRowButton,
-                            GuiTheme::color(armed ? GuiTheme::kBlue : GuiTheme::kSurface2), LV_PART_MAIN);
+                            GuiTheme::color(armed ? GuiTheme::kBlue : GuiTheme::kSurface1), LV_PART_MAIN);
   lv_obj_set_style_bg_opa(sleepTimerRowButton, armed ? LV_OPA_20 : LV_OPA_COVER, LV_PART_MAIN);
   lv_obj_set_style_img_recolor(sleepTimerRowMoon, GuiTheme::color(tint), LV_PART_MAIN);
   lv_label_set_text(sleepTimerRowLabel,
