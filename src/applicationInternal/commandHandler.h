@@ -157,4 +157,5 @@ void receiveMQTTmessage_cb(std::string topic, std::string payload);
 #endif
 #if (ENABLE_HUB_COMMUNICATION > 0)
 void handleHubCommandResult(const omote_CommandResult& result);
+void handleHubEventTransmitted(const omote_RemoteEvent& event);
 #endif

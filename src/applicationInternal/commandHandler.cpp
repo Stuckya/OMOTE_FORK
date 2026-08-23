@@ -393,6 +393,10 @@ static void openPowerSessionForDevicesThatAreOn() {
   }
 }
 
+void handleHubEventTransmitted(const omote_RemoteEvent& event) {
+  Hub::PowerStatus::commandTransmitted(event.command);
+}
+
 void handleHubCommandResult(const omote_CommandResult& result) {
   omote_log_d("Received CommandResult: kind=%d\r\n", result.kind);
 

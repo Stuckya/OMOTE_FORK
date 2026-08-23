@@ -19,6 +19,13 @@ void HubPowerSession::expect(const std::string& id, const std::string& name, boo
   settleIfComplete();
 }
 
+void HubPowerSession::noteTransmitted(unsigned long now) {
+  if (currentPhase != Phase::IN_PROGRESS) {
+    return;
+  }
+  openedAt = now;
+}
+
 bool HubPowerSession::observe(const std::string& id, bool isOn) {
   if (currentPhase == Phase::IDLE) {
     return false;

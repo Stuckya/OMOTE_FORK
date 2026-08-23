@@ -30,6 +30,11 @@ public:
   void expect(const std::string& id, const std::string& name, bool targetOn,
               bool alreadyThere, unsigned long now);
 
+  // The commands actually left for the hub. A queued send can sit for seconds
+  // while the link comes up on wake, and the hub cannot begin verifying until
+  // it arrives -- so the deadline runs from here, not from the tap.
+  void noteTransmitted(unsigned long now);
+
   // Observed power for a device; returns true when it changed the session.
   bool observe(const std::string& id, bool isOn);
 
