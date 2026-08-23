@@ -39,6 +39,7 @@ bool HubPowerSession::observe(const std::string& id, bool isOn) {
 
 void HubPowerSession::noteError(const std::string& message) {
   errorMessage = message;
+  anonymousErrors++;
 }
 
 HubPowerSession::Phase HubPowerSession::tick(unsigned long now) {
@@ -85,6 +86,9 @@ std::string HubPowerSession::headline() const {
       }
       return std::string("All devices ") + state;
     case Phase::TIMED_OUT: {
+      if (!errorMessage.empty()) {
+        return errorMessage;
+      }
       const size_t failed = countWith(Outcome::FAILED);
       if (failed == 1) {
         for (size_t i = 0; i < count; i++) {
@@ -116,7 +120,12 @@ HubPowerSession::Outcome HubPowerSession::slotOutcome(size_t index) const {
   if (index < confirmed) {
     return Outcome::CONFIRMED;
   }
-  if (index < confirmed + countWith(Outcome::FAILED)) {
+  // Anonymous errors fail slots ahead of the timeout; once the timeout has
+  // failed the unconfirmed devices those already include the errored ones.
+  const size_t unconfirmed = count - confirmed;
+  const size_t errored = anonymousErrors < unconfirmed ? anonymousErrors : unconfirmed;
+  const size_t failed = countWith(Outcome::FAILED);
+  if (index < confirmed + (failed > errored ? failed : errored)) {
     return Outcome::FAILED;
   }
   return Outcome::PENDING;
@@ -127,6 +136,7 @@ void HubPowerSession::reset() {
   currentPhase = Phase::IDLE;
   openedAt = 0;
   errorMessage.clear();
+  anonymousErrors = 0;
 }
 
 int HubPowerSession::indexOf(const std::string& id) const {

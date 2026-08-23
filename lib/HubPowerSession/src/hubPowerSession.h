@@ -31,7 +31,8 @@ public:
   // Observed power for a device; returns true when it changed the session.
   bool observe(const std::string& id, bool isOn);
 
-  // A hub error that names no device; replaces the headline while in progress.
+  // A hub error that names no device: it fails one progress slot without
+  // blaming a device, and its text takes the headline until every device confirms.
   void noteError(const std::string& message);
 
   // Applies the session timeout: pending devices become FAILED.
@@ -58,4 +59,5 @@ private:
   Phase currentPhase = Phase::IDLE;
   unsigned long openedAt = 0;
   std::string errorMessage;
+  size_t anonymousErrors = 0;
 };
