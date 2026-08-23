@@ -17,6 +17,7 @@
 #include "hub/hubManager.h"
 #include "hub/protoCodec.h"
 #include "applicationInternal/hub/powerStatus.h"
+#include "applicationInternal/hub/hubDeviceNames.h"
 #include "applicationInternal/gui/guiStatusUpdate.h"
 #include <hubDeviceStateCache.h>
 
@@ -412,9 +413,10 @@ void handleHubCommandResult(const omote_CommandResult& result) {
     case omote_ResponseKind_ERROR: {
       if (result.which_data == omote_CommandResult_error_tag) {
         const auto& error = result.data.error;
-        omote_log_e("Hub error: %s\r\n", error.message);
-        if (Hub::PowerStatus::noteError(error.message)) break;
-        GuiNotification::showErrorNotification(error.message);
+        omote_log_e("Hub error (%s): %s\r\n", error.device_id, error.message);
+        const std::string described = Hub::describeDeviceError(error.device_id, error.message);
+        if (Hub::PowerStatus::noteError(described)) break;
+        GuiNotification::showErrorNotification(described);
       }
       break;
     }

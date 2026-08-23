@@ -80,10 +80,9 @@ void observed(const omote_DeviceState& state) {
 }
 
 bool noteError(const std::string& message) {
-  if (!inProgress()) {
+  if (!session.noteError(message)) {
     return false;
   }
-  session.noteError(message);
   render();
   return true;
 }

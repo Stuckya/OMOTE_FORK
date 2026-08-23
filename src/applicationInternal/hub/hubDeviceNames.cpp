@@ -26,4 +26,11 @@ std::string hubDeviceDisplayName(const std::string& deviceId) {
   return fallback;
 }
 
+std::string describeDeviceError(const std::string& deviceId, const std::string& message) {
+  if (deviceId.empty()) {
+    return message;
+  }
+  return hubDeviceDisplayName(deviceId) + ": " + message;
+}
+
 }  // namespace Hub

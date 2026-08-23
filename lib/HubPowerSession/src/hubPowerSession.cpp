@@ -38,6 +38,9 @@ bool HubPowerSession::observe(const std::string& id, bool isOn) {
 }
 
 bool HubPowerSession::noteError(const std::string& message) {
+  if (currentPhase != Phase::IN_PROGRESS && currentPhase != Phase::TIMED_OUT) {
+    return false;
+  }
   errorMessage = message;
   anonymousErrors++;
   return true;

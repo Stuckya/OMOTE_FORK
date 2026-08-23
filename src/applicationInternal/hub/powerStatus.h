@@ -16,8 +16,8 @@ void commandSent(const std::string& deviceId, omote_OmoteCommand command,
 
 void observed(const omote_DeviceState& state);
 
-// Hub errors name no device; an open session shows the message in the banner
-// instead of the generic error notification. Returns true when consumed.
+// A hub error shown by the session banner instead of the generic error
+// notification while a session is on screen. Returns true when consumed.
 bool noteError(const std::string& message);
 
 // True from the first power command until the banner has had its final say.
