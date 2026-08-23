@@ -128,6 +128,7 @@ void register_device_lgTV()
   register_command(&LGTV_HOME           , makeCommandData(IR, {std::to_string(IR_PROTOCOL_NEC), "0x20DF3EC1"}));
 
   #if (ENABLE_HUB_COMMUNICATION > 0)
+    register_hub_device_name("LG_TV", "LG TV");
     register_hub_command(&LGTV_POWER_OFF, "LG_TV", "POWER_OFF");
     register_hub_command(&LGTV_POWER_ON, "LG_TV", "POWER_ON");
     register_hub_command(&LGTV_SOURCE, "LG_TV", "SOURCE");

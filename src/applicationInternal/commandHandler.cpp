@@ -16,7 +16,14 @@
 #include "guis/gui_BLEpairing.h"
 #include "hub/hubManager.h"
 #include "hub/protoCodec.h"
+#include "applicationInternal/hub/powerStatus.h"
+#include "applicationInternal/hub/hubDeviceNames.h"
 #include "applicationInternal/gui/guiStatusUpdate.h"
+#include <hubDeviceStateCache.h>
+
+// Latest per-device snapshots from the hub, fed by wake syncs and by pushes
+// when the hub runs with publish_device_state on.
+static HubDeviceStateCache hubDeviceStateCache;
 
 uint16_t COMMAND_UNKNOWN;
 
@@ -184,7 +191,10 @@ void sendHubMessage(const std::string& device, omote_OmoteCommand command, omote
               device.c_str(), command);
   
   omote_RemoteEvent event = Hub::ProtoCodec::createRemoteEvent(device, command, type);
-  HubManager::getInstance().sendRemoteEvent(event);
+  if (!HubManager::getInstance().sendRemoteEvent(event)) {
+    return;
+  }
+  Hub::PowerStatus::commandSent(device, command, hubDeviceStateCache.find(device));
 }
 
 // Overload for string commands (for backward compatibility with scene registration)
@@ -358,18 +368,33 @@ void receiveMQTTmessage_cb(std::string topic, std::string payload) {
 #include "applicationInternal/hub/pairingManager.h"
 #include "applicationInternal/hub/deviceManager.h"
 #include "applicationInternal/gui/guiNotification.h"
+// A wake-fill snapshot (first sighting) merges silently; a later push that moves
+// the active scene's volume device is the one out-of-band fact worth showing.
+static void mergePushedDeviceState(const omote_DeviceState& state) {
+  const bool volumeMoved = hubDeviceStateCache.volumeChangedBy(state);
+  hubDeviceStateCache.merge(state);
+  Hub::PowerStatus::observed(state);
+  if (!volumeMoved || HubManager::getInstance().volumeDeviceId() != state.device_id) {
+    return;
+  }
+  GuiNotification::showVolumeNotification(state.volume.level, state.volume.is_muted);
+}
 
 void handleHubCommandResult(const omote_CommandResult& result) {
   omote_log_d("Received CommandResult: kind=%d\r\n", result.kind);
-  
+
   switch (result.kind) {
     case omote_ResponseKind_VOLUME: {
       if (result.which_data == omote_CommandResult_volume_tag) {
         const auto& volume = result.data.volume;
         omote_log_d("Volume update: level=%.1f, muted=%s\r\n",
                    volume.level, volume.is_muted ? "true" : "false");
-        
+
         GuiNotification::showVolumeNotification(volume.level, volume.is_muted);
+        // The hub echoes this level as a device-state push moments later; noting
+        // it keeps that echo from re-raising the notification just shown.
+        hubDeviceStateCache.noteVolume(
+          HubManager::getInstance().volumeDeviceId(), volume.level, volume.is_muted);
       }
       break;
     }
@@ -378,7 +403,8 @@ void handleHubCommandResult(const omote_CommandResult& result) {
       if (result.which_data == omote_CommandResult_power_tag) {
         const auto& power = result.data.power;
         omote_log_d("Power update: is_on=%s\r\n", power.is_on ? "true" : "false");
-        
+        // The reply names no device; an open session reports from observed state instead.
+        if (Hub::PowerStatus::isActive()) break;
         GuiNotification::showPowerNotification(power.is_on);
       }
       break;
@@ -387,9 +413,10 @@ void handleHubCommandResult(const omote_CommandResult& result) {
     case omote_ResponseKind_ERROR: {
       if (result.which_data == omote_CommandResult_error_tag) {
         const auto& error = result.data.error;
-        omote_log_e("Hub error: %s\r\n", error.message);
-        
-        GuiNotification::showErrorNotification(error.message);
+        omote_log_e("Hub error (%s): %s\r\n", error.device_id, error.message);
+        const std::string described = Hub::describeDeviceError(error.device_id, error.message);
+        if (Hub::PowerStatus::noteError(described)) break;
+        GuiNotification::showErrorNotification(described);
       }
       break;
     }
@@ -409,6 +436,10 @@ void handleHubCommandResult(const omote_CommandResult& result) {
         setTime(state_sync.time.timestamp, state_sync.time.timezone_offset);
         omote_log_d("Time sync: timestamp=%lu, tz=%d\r\n",
                    state_sync.time.timestamp, state_sync.time.timezone_offset);
+      }
+
+      for (pb_size_t i = 0; i < state_sync.devices_count; i++) {
+        mergePushedDeviceState(state_sync.devices[i]);
       }
 
       omote_log_d("State sync: has_time=%s, devices=%d\r\n",

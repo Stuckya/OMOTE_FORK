@@ -41,7 +41,10 @@ jobs:
         if: ${{matrix.sys == 'mingw32'}}
         shell: msys2 {0}
         run: |
-          pacman --noconfirm -U https://repo.msys2.org/mingw/mingw32/mingw-w64-i686-SDL2_image-2.8.8-1-any.pkg.tar.zst
+          # MSYS2 dropped SDL2_image's 32-bit deps (libavif, libjxl) from the mingw32 db; the build
+          # only needs the header and import lib, so skip dependency checks and fail here, not at #include.
+          pacman --noconfirm -Udd https://repo.msys2.org/mingw/mingw32/mingw-w64-i686-SDL2_image-2.8.8-1-any.pkg.tar.zst
+          test -f /mingw32/include/SDL2/SDL_image.h
       - name: Add paths mingw64
         if: ${{matrix.sys == 'mingw64'}}
         run: |
