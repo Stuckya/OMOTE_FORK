@@ -135,6 +135,29 @@ void test_late_observation_recovers_a_timed_out_session() {
   TEST_ASSERT_EQUAL_STRING("All devices on", session.headline().c_str());
 }
 
+void test_slots_fill_with_confirmations_from_the_left_regardless_of_device_order() {
+  HubPowerSession session = shieldSceneSession();
+
+  session.observe("DENON_AVR", true);  // sent second, confirmed first
+
+  TEST_ASSERT_EQUAL(Outcome::CONFIRMED, session.slotOutcome(0));
+  TEST_ASSERT_EQUAL(Outcome::PENDING, session.slotOutcome(1));
+  TEST_ASSERT_EQUAL(Outcome::PENDING, session.slotOutcome(2));
+  TEST_ASSERT_EQUAL(Outcome::CONFIRMED, session.at(1).outcome);  // the device record keeps who confirmed
+}
+
+void test_slots_place_failures_after_confirmations_at_timeout() {
+  HubPowerSession session = shieldSceneSession();
+  session.observe("DENON_AVR", true);
+  session.observe("LG_TV", true);
+  session.tick(T0 + HubPowerSession::TIMEOUT_MS);  // Shield, sent first, never answered
+
+  TEST_ASSERT_EQUAL(Outcome::CONFIRMED, session.slotOutcome(0));
+  TEST_ASSERT_EQUAL(Outcome::CONFIRMED, session.slotOutcome(1));
+  TEST_ASSERT_EQUAL(Outcome::FAILED, session.slotOutcome(2));
+  TEST_ASSERT_EQUAL(Outcome::FAILED, session.at(0).outcome);  // the device record keeps who failed
+}
+
 void test_power_off_session_uses_off_wording() {
   HubPowerSession session;
   session.expect("LG_TV", "LG TV", false, false, T0);
@@ -209,6 +232,8 @@ int main() {
   RUN_TEST(test_timeout_fails_pending_devices_and_names_the_straggler);
   RUN_TEST(test_timeout_counts_multiple_stragglers);
   RUN_TEST(test_late_observation_recovers_a_timed_out_session);
+  RUN_TEST(test_slots_fill_with_confirmations_from_the_left_regardless_of_device_order);
+  RUN_TEST(test_slots_place_failures_after_confirmations_at_timeout);
   RUN_TEST(test_power_off_session_uses_off_wording);
   RUN_TEST(test_anonymous_error_takes_over_the_headline_while_in_progress);
   RUN_TEST(test_expect_after_a_finished_session_starts_a_fresh_one);

@@ -111,6 +111,10 @@ const HubPowerSession::Device& HubPowerSession::at(size_t index) const {
   return devices[index];
 }
 
+HubPowerSession::Outcome HubPowerSession::slotOutcome(size_t) const {
+  return Outcome::PENDING;
+}
+
 void HubPowerSession::reset() {
   count = 0;
   currentPhase = Phase::IDLE;

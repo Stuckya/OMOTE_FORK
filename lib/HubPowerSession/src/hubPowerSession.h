@@ -43,6 +43,9 @@ public:
   bool targetOn() const;
   size_t size() const;
   const Device& at(size_t index) const;
+  // The progress-bar view: confirmations fill slots from the left, failures
+  // follow, pending slots trail. Slots are a count, not a device map.
+  Outcome slotOutcome(size_t index) const;
   void reset();
 
 private:
