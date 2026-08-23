@@ -1,5 +1,6 @@
 #include "guiNotification.h"
 #include "guiBase.h"
+#include "applicationInternal/gui/guiTheme.h"
 #include "applicationInternal/hub/sleepTimer.h"
 #include "applicationInternal/omote_log.h"
 
@@ -26,7 +27,7 @@ static const int AUTO_HIDE_DELAY = 3000;
 static const int RAPID_UPDATE_DELAY = 1500;
 static const int HOLD_UNTIL_UPDATED = 0;
 
-static const uint32_t COLOR_SHELL = 0x1C1C1E;
+static const uint32_t COLOR_SHELL = GuiTheme::kSurface1;
 static const uint32_t COLOR_TEXT = 0xFFFFFF;
 static const uint32_t COLOR_TRACK = 0x3A3A3C;
 static const uint32_t COLOR_BUSY = 0x007AFF;
@@ -59,20 +60,6 @@ static lv_obj_t* createSegment(lv_obj_t* parent) {
     return segment;
 }
 
-static void createAction(lv_obj_t* parent, const char* text, uint32_t color,
-                         lv_event_cb_t callback) {
-    lv_obj_t* button = lv_btn_create(parent);
-    lv_obj_remove_style_all(button);
-    lv_obj_set_flex_grow(button, 1);
-    lv_obj_set_height(button, ACTION_HEIGHT);
-    lv_obj_add_event_cb(button, callback, LV_EVENT_CLICKED, nullptr);
-    lv_obj_t* label = lv_label_create(button);
-    lv_label_set_text(label, text);
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(label, lv_color_hex(color), LV_PART_MAIN);
-    lv_obj_center(label);
-}
-
 static void dismiss_event_cb(lv_event_t*) {
     hideNotification();
 }
@@ -83,16 +70,13 @@ static void extend_event_cb(lv_event_t*) {
 }
 
 static void createActionRow() {
-    action_row = lv_obj_create(notification_container);
-    lv_obj_remove_style_all(action_row);
-    lv_obj_set_size(action_row, SCR_WIDTH - 2 * CONTENT_PADDING, ACTION_HEIGHT);
-    lv_obj_align(action_row, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_set_flex_flow(action_row, LV_FLEX_FLOW_ROW);
-    lv_obj_clear_flag(action_row, LV_OBJ_FLAG_SCROLLABLE);
-    // The row must not swallow the taps meant for its buttons (v8 has no bubbling).
-    lv_obj_clear_flag(action_row, LV_OBJ_FLAG_CLICKABLE);
-    createAction(action_row, "Dismiss", COLOR_MUTED, dismiss_event_cb);
-    createAction(action_row, "+15 min", COLOR_BUSY, extend_event_cb);
+    action_row = GuiTheme::splitActionRow(notification_container, ACTION_HEIGHT);
+    // Full-bleed against the banner's bottom edge: the padding offset cancels
+    // the container's, so the divider spans the banner and clears the headline.
+    lv_obj_set_width(action_row, SCR_WIDTH);
+    lv_obj_align(action_row, LV_ALIGN_BOTTOM_MID, 0, CONTENT_PADDING);
+    GuiTheme::splitAction(action_row, "Dismiss", GuiTheme::kTextMute, dismiss_event_cb);
+    GuiTheme::splitAction(action_row, "+15 min", GuiTheme::kBlue, extend_event_cb);
     lv_obj_add_flag(action_row, LV_OBJ_FLAG_HIDDEN);
 }
 

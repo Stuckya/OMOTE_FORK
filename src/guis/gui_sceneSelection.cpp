@@ -46,14 +46,8 @@ static void createSleepTimerRow(lv_obj_t* tab) {
   lv_obj_set_style_radius(button, 30, LV_PART_MAIN);
   lv_obj_add_event_cb(button, sleepTimerRow_event_cb, LV_EVENT_CLICKED, NULL);
 
-  lv_obj_t* row = lv_obj_create(button);
-  lv_obj_remove_style_all(row);
-  lv_obj_set_size(row, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_t* row = GuiTheme::flexRow(button, 6);
   lv_obj_center(row);
-  lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_style_pad_column(row, 6, LV_PART_MAIN);
-  lv_obj_clear_flag(row, LV_OBJ_FLAG_CLICKABLE);
 
   lv_obj_t* moon = lv_img_create(row);
   lv_img_set_src(moon, &sleep_moon_medium);

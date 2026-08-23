@@ -92,15 +92,6 @@ void build_picker(lv_obj_t *root) {
   config.unit = "min";
   config.onReleased = ring_released_cb;
   RingPicker::create(root, config);
-
-  lv_obj_t *hint = lv_label_create(root);
-  lv_label_set_text(hint, "Runs on the hub - works while the remote sleeps");
-  lv_obj_set_width(hint, lv_pct(100));
-  lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);
-  lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-  lv_obj_set_style_text_font(hint, &lv_font_montserrat_10, LV_PART_MAIN);
-  lv_obj_set_style_text_color(hint, GuiTheme::color(GuiTheme::kTextMute),
-                              LV_PART_MAIN);
 }
 
 void build_armed(lv_obj_t *root) {
@@ -126,23 +117,21 @@ void build_armed(lv_obj_t *root) {
   lv_obj_set_style_text_color(offAtLabel, GuiTheme::color(GuiTheme::kTextMute),
                               LV_PART_MAIN);
 
-  lv_obj_t *actions = lv_obj_create(root);
-  lv_obj_remove_style_all(actions);
+  GuiTheme::spacer(root);
+
+  lv_obj_t *actions = GuiTheme::flexRow(root, 8);
   lv_obj_set_width(actions, lv_pct(100));
   lv_obj_set_height(actions, 40);
-  lv_obj_set_flex_flow(actions, LV_FLEX_FLOW_ROW);
-  lv_obj_set_style_pad_column(actions, 8, LV_PART_MAIN);
-  lv_obj_clear_flag(actions, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_clear_flag(actions, LV_OBJ_FLAG_SCROLLABLE);
 
-  lv_obj_t *extend = GuiTheme::primaryButton(actions, "+15 min", GuiTheme::kSurface2,
-                                             extend_event_cb);
+  lv_obj_t *extend = GuiTheme::tintedButton(actions, "+15 min", GuiTheme::kSurface2,
+                                            LV_OPA_COVER, GuiTheme::kBlue,
+                                            extend_event_cb);
   lv_obj_set_flex_grow(extend, 1);
   lv_obj_set_height(extend, 40);
-  lv_obj_t *cancel = GuiTheme::primaryButton(actions, "Cancel", GuiTheme::kRed,
-                                             cancel_event_cb);
-  // Red-tinted, not solid: it kills the timer, not the sheet.
-  lv_obj_set_style_bg_opa(cancel, LV_OPA_20, LV_PART_MAIN);
+  // Red on red tint: it kills the timer, not the sheet.
+  lv_obj_t *cancel = GuiTheme::tintedButton(actions, "Cancel", GuiTheme::kRed,
+                                            LV_OPA_20, GuiTheme::kRed,
+                                            cancel_event_cb);
   lv_obj_set_flex_grow(cancel, 1);
   lv_obj_set_height(cancel, 40);
 

@@ -6,6 +6,7 @@
 #include "applicationInternal/gui/guiMemoryOptimizer.h"
 #include "applicationInternal/gui/guiNotification.h"
 #include "applicationInternal/gui/components/sleepTimerChip.h"
+#include "applicationInternal/gui/guiTheme.h"
 // for changing to scene Selection gui
 #include "applicationInternal/commandHandler.h"
 #include "applicationInternal/omote_log.h"
@@ -282,15 +283,9 @@ void init_gui_status_bar() {
   // Scene ------------------------------------------------------------------------
   // Scene name and sleep chip share a centered row, so the pair stays centered
   // whatever the scene is called.
-  lv_obj_t* sceneRow = lv_obj_create(statusbar);
-  lv_obj_remove_style_all(sceneRow);
-  lv_obj_set_size(sceneRow, LV_SIZE_CONTENT, statusbarHeight);
+  lv_obj_t* sceneRow = GuiTheme::flexRow(statusbar, 5);
+  lv_obj_set_height(sceneRow, statusbarHeight);
   lv_obj_align(sceneRow, LV_ALIGN_TOP_MID, 0, 0);
-  lv_obj_set_flex_flow(sceneRow, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(sceneRow, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_style_pad_column(sceneRow, 5, LV_PART_MAIN);
-  lv_obj_clear_flag(sceneRow, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_clear_flag(sceneRow, LV_OBJ_FLAG_SCROLLABLE);
 
   SceneLabel = lv_label_create(sceneRow);
   lv_label_set_text(SceneLabel, "");

@@ -15,13 +15,7 @@ void chip_event_cb(lv_event_t *) { gui_sleepTimer_show(); }
 }  // namespace
 
 void createSleepTimerChip(lv_obj_t *parent) {
-  chip = lv_obj_create(parent);
-  lv_obj_remove_style_all(chip);
-  lv_obj_set_size(chip, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-  lv_obj_set_flex_flow(chip, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(chip, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
-                        LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_style_pad_column(chip, 3, LV_PART_MAIN);
+  chip = GuiTheme::flexRow(parent, 3);
   lv_obj_add_flag(chip, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(chip, chip_event_cb, LV_EVENT_CLICKED, nullptr);
 

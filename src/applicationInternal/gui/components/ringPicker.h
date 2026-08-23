@@ -11,6 +11,8 @@ namespace RingPicker {
 typedef void (*ReleasedCallback)(uint16_t value);
 
 struct Config {
+  // The ring is drawn from zero so the smallest selectable value still reads as
+  // progress; minValue is the floor the snap enforces, not where the arc starts.
   uint16_t minValue;
   uint16_t maxValue;
   uint16_t step;
