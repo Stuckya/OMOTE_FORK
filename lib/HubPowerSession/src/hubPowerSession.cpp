@@ -111,7 +111,14 @@ const HubPowerSession::Device& HubPowerSession::at(size_t index) const {
   return devices[index];
 }
 
-HubPowerSession::Outcome HubPowerSession::slotOutcome(size_t) const {
+HubPowerSession::Outcome HubPowerSession::slotOutcome(size_t index) const {
+  const size_t confirmed = countWith(Outcome::CONFIRMED);
+  if (index < confirmed) {
+    return Outcome::CONFIRMED;
+  }
+  if (index < confirmed + countWith(Outcome::FAILED)) {
+    return Outcome::FAILED;
+  }
   return Outcome::PENDING;
 }
 

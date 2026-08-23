@@ -348,27 +348,15 @@ static uint32_t colorFor(HubPowerSession::Tone tone) {
     }
 }
 
-static int countWith(const HubPowerSession& session, HubPowerSession::Outcome outcome) {
-    int matches = 0;
-    for (size_t i = 0; i < session.size(); i++) {
-        if (session.at(i).outcome == outcome) {
-            matches++;
-        }
+static uint32_t colorFor(HubPowerSession::Outcome outcome) {
+    switch (outcome) {
+        case HubPowerSession::Outcome::CONFIRMED:
+            return COLOR_OK;
+        case HubPowerSession::Outcome::FAILED:
+            return COLOR_WARN;
+        default:
+            return COLOR_TRACK;
     }
-    return matches;
-}
-
-// The bar is a progress count, not a device map: confirmations fill green from
-// the left, failures follow in amber, the rest stay on the track. Which device
-// is which lives in the headline.
-static uint32_t segmentColor(int index, int confirmed, int failed) {
-    if (index < confirmed) {
-        return COLOR_OK;
-    }
-    if (index < confirmed + failed) {
-        return COLOR_WARN;
-    }
-    return COLOR_TRACK;
 }
 
 static void setHeadline(const HubPowerSession& session) {
@@ -398,14 +386,12 @@ static void layoutSegments(const HubPowerSession& session) {
     const int usable = SCR_WIDTH - 2 * CONTENT_PADDING;
     const int width = (usable - SEGMENT_GAP * (count - 1)) / count;
     const int x0 = (usable - (width * count + SEGMENT_GAP * (count - 1))) / 2;
-    const int confirmed = countWith(session, HubPowerSession::Outcome::CONFIRMED);
-    const int failed = countWith(session, HubPowerSession::Outcome::FAILED);
 
     for (int i = 0; i < count; i++) {
         lv_obj_t* segment = power_segments[i];
         lv_obj_set_size(segment, width, BAR_HEIGHT);
         lv_obj_align(segment, LV_ALIGN_BOTTOM_LEFT, x0 + i * (width + SEGMENT_GAP), -BAR_BOTTOM_INSET);
-        lv_obj_set_style_bg_color(segment, lv_color_hex(segmentColor(i, confirmed, failed)), LV_PART_MAIN);
+        lv_obj_set_style_bg_color(segment, lv_color_hex(colorFor(session.slotOutcome(i))), LV_PART_MAIN);
         setHidden(segment, false);
     }
 }
