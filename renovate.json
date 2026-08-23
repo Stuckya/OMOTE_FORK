@@ -1,0 +1,14 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    "group:all",
+    "schedule:weekly"
+  ],
+  "timezone": "America/Indiana/Indianapolis",
+  "dependencyDashboard": true,
+  "git-submodules": {
+    "enabled": true
+  }
+}
