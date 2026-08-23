@@ -7,7 +7,6 @@
 #include "applicationInternal/gui/components/ringPicker.h"
 #include "applicationInternal/gui/guiBase.h"
 #include "applicationInternal/gui/guiStatusUpdate.h"
-#include "applicationInternal/gui/guiRegistry.h"
 #include "applicationInternal/gui/guiTheme.h"
 #include "applicationInternal/hub/sleepTimer.h"
 #include "applicationInternal/scenes/sceneHandler.h"
@@ -161,19 +160,3 @@ void gui_sleepTimer_hide(void) {
 }
 
 void gui_sleepTimer_dismiss_overlay(void) { destroy_overlay(); }
-
-static void create_tab_content_sleepTimer(lv_obj_t *tab) {
-  lv_obj_set_layout(tab, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(tab, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
-                        LV_FLEX_ALIGN_CENTER);
-  lv_obj_clear_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
-  build_picker(tab);
-}
-
-static void notify_tab_before_delete_sleepTimer(void) {}
-
-void register_gui_sleepTimer(void) {
-  register_gui(std::string(tabName_sleepTimer), &create_tab_content_sleepTimer,
-               &notify_tab_before_delete_sleepTimer);
-}

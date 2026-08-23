@@ -36,7 +36,6 @@
 #include "applicationInternal/gui/guiBase.h"
 #include "applicationInternal/gui/guiRegistry.h"
 #include "guis/gui_sceneSelection.h"
-#include "guis/gui_sleepTimer.h"
 #include "guis/gui_irReceiver.h"
 #include "guis/gui_settings.h"
 #include "guis/gui_numpad.h"
@@ -118,9 +117,6 @@ int main(int argc, char *argv[]) {
   register_gui_settings();
   //  register_gui_appleTV();
   register_gui_numpad();
-  #if (ENABLE_HUB_COMMUNICATION > 0)
-  register_gui_sleepTimer();
-  #endif
   #if (ENABLE_KEYBOARD_BLE == 1)
   register_gui_blepairing();
   #endif
