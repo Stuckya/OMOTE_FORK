@@ -21,6 +21,10 @@ public:
 
   Stage stage() const;
   bool isArmed() const;
+  // Still inside the final minute. Asked again when a deferred warning is
+  // replayed, because by then the one-shot edge is spent and the timer may
+  // have been cancelled or extended out of the window.
+  bool isWarning() const;
   uint32_t remainingSeconds(unsigned long now) const;
 
   // "42m" for the status bar, "41:32" for the sheet -- the same minute, because

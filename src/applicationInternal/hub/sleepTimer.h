@@ -18,6 +18,8 @@ void cancel();
 bool observed(const omote_SleepTimerStatus& status);
 
 bool isArmed();
+// Still inside the final minute; asked before replaying a deferred warning.
+bool isWarning();
 // "42m" for the status bar chip; empty when nothing is armed.
 std::string indicatorText();
 // "41:32" for the armed sheet.

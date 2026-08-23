@@ -24,6 +24,8 @@ bool HubSleepTimer::isArmed() const {
   return currentStage == Stage::ARMED || currentStage == Stage::WARNING;
 }
 
+bool HubSleepTimer::isWarning() const { return currentStage == Stage::WARNING; }
+
 uint32_t HubSleepTimer::remainingSeconds(unsigned long now) const {
   if (!isArmed()) return 0;
   const unsigned long elapsed = (now - observedAt) / 1000;

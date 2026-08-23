@@ -114,6 +114,36 @@ void test_waking_inside_the_final_minute_still_warns() {
   TEST_ASSERT_TRUE(timer.isArmed());
 }
 
+void test_the_warning_window_is_queryable_after_the_edge_is_consumed() {
+  // A warning deferred behind an animation is replayed later, so the display
+  // needs to re-ask whether it is still true -- the one-shot edge is gone.
+  HubSleepTimer timer = armed(45 * 60);
+  timer.observe(Stage::WARNING, 60, T0 + 1000);
+  TEST_ASSERT_TRUE(timer.takeWarning());
+
+  TEST_ASSERT_TRUE(timer.isWarning());
+}
+
+void test_a_cancelled_timer_is_no_longer_warning() {
+  HubSleepTimer timer = armed(45 * 60);
+  timer.observe(Stage::WARNING, 60, T0 + 1000);
+
+  timer.observe(Stage::IDLE, 0, T0 + 1200);
+
+  TEST_ASSERT_FALSE(timer.isWarning());
+}
+
+void test_an_extended_timer_is_no_longer_warning() {
+  // Extending leaves it armed, not idle: "still armed" is the wrong question.
+  HubSleepTimer timer = armed(45 * 60);
+  timer.observe(Stage::WARNING, 60, T0 + 1000);
+
+  timer.observe(Stage::ARMED, 15 * 60, T0 + 1200);
+
+  TEST_ASSERT_TRUE(timer.isArmed());
+  TEST_ASSERT_FALSE(timer.isWarning());
+}
+
 void test_firing_leaves_no_timer_behind() {
   HubSleepTimer timer = armed(60);
 
@@ -171,6 +201,9 @@ int main() {
   RUN_TEST(test_the_warning_is_raised_once_per_crossing);
   RUN_TEST(test_extending_out_of_the_warning_arms_a_fresh_one);
   RUN_TEST(test_waking_inside_the_final_minute_still_warns);
+  RUN_TEST(test_the_warning_window_is_queryable_after_the_edge_is_consumed);
+  RUN_TEST(test_a_cancelled_timer_is_no_longer_warning);
+  RUN_TEST(test_an_extended_timer_is_no_longer_warning);
   RUN_TEST(test_firing_leaves_no_timer_behind);
   RUN_TEST(test_a_fired_push_does_not_also_warn);
   RUN_TEST(test_minutes_snap_to_the_quarter_hour_within_range);

@@ -494,6 +494,12 @@ static void flushPendingWarning() {
         return;
     }
     warning_pending = false;
+    // The timer may have been cancelled or extended during the slide. This
+    // banner never auto-hides, so an unchecked replay would leave a standing
+    // promise to power off that nothing is going to keep.
+    if (!Hub::SleepTimer::isWarning()) {
+        return;
+    }
     showSleepWarning();
 }
 

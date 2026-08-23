@@ -101,6 +101,8 @@ bool observed(const omote_SleepTimerStatus& status) {
 
 bool isArmed() { return timer.isArmed(); }
 
+bool isWarning() { return timer.isWarning(); }
+
 std::string indicatorText() {
   return timer.isArmed() ? timer.indicatorText(millis()) : std::string();
 }
