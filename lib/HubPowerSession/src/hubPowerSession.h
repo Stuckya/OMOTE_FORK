@@ -33,7 +33,8 @@ public:
 
   // A hub error that names no device: it fails one progress slot without
   // blaming a device, and its text takes the headline until every device confirms.
-  void noteError(const std::string& message);
+  // Returns false when no session can show it (idle, or already resolved).
+  bool noteError(const std::string& message);
 
   // Applies the session timeout: pending devices become FAILED.
   Phase tick(unsigned long now);

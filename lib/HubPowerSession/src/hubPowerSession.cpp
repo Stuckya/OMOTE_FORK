@@ -37,9 +37,10 @@ bool HubPowerSession::observe(const std::string& id, bool isOn) {
   return true;
 }
 
-void HubPowerSession::noteError(const std::string& message) {
+bool HubPowerSession::noteError(const std::string& message) {
   errorMessage = message;
   anonymousErrors++;
+  return true;
 }
 
 HubPowerSession::Phase HubPowerSession::tick(unsigned long now) {

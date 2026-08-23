@@ -225,6 +225,31 @@ void test_anonymous_error_slot_clears_when_every_device_confirms() {
   TEST_ASSERT_EQUAL(Outcome::CONFIRMED, session.slotOutcome(2));
 }
 
+void test_error_after_the_timeout_still_lands_in_the_session() {
+  HubPowerSession session = shieldSceneSession();
+  session.observe("DENON_AVR", true);
+  session.observe("LG_TV", true);
+  session.tick(T0 + HubPowerSession::TIMEOUT_MS);
+
+  TEST_ASSERT_TRUE(session.noteError("Shield: reconnecting"));
+
+  TEST_ASSERT_EQUAL(Phase::TIMED_OUT, session.phase());
+  TEST_ASSERT_EQUAL(Tone::WARN, session.tone());
+  TEST_ASSERT_EQUAL_STRING("Shield: reconnecting", session.headline().c_str());
+  TEST_ASSERT_EQUAL(Outcome::FAILED, session.slotOutcome(2));
+}
+
+void test_error_is_refused_once_the_session_resolved_or_never_opened() {
+  HubPowerSession idle;
+  TEST_ASSERT_FALSE(idle.noteError("Hub error"));
+
+  HubPowerSession session;
+  session.expect("LG_TV", "LG TV", true, true, T0);
+  TEST_ASSERT_EQUAL(Phase::RESOLVED, session.phase());
+  TEST_ASSERT_FALSE(session.noteError("LG TV: reconnecting"));
+  TEST_ASSERT_EQUAL_STRING("LG TV on", session.headline().c_str());
+}
+
 void test_expect_after_a_finished_session_starts_a_fresh_one() {
   HubPowerSession session;
   session.expect("LG_TV", "LG TV", true, false, T0);
@@ -277,6 +302,8 @@ int main() {
   RUN_TEST(test_anonymous_error_fails_one_slot_immediately);
   RUN_TEST(test_anonymous_error_is_not_double_counted_at_timeout);
   RUN_TEST(test_anonymous_error_slot_clears_when_every_device_confirms);
+  RUN_TEST(test_error_after_the_timeout_still_lands_in_the_session);
+  RUN_TEST(test_error_is_refused_once_the_session_resolved_or_never_opened);
   RUN_TEST(test_expect_after_a_finished_session_starts_a_fresh_one);
   RUN_TEST(test_timeout_is_measured_from_the_session_open);
   RUN_TEST(test_reset_returns_to_idle);
