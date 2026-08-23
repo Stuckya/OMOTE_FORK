@@ -8,25 +8,53 @@ static lv_obj_t* notification_container = nullptr;
 static lv_obj_t* notification_label = nullptr;
 static lv_obj_t* volume_level_label = nullptr;
 static lv_obj_t* volume_bar = nullptr;
+static lv_obj_t* power_segments[HubPowerSession::CAPACITY] = {};
 static lv_timer_t* hide_timer = nullptr;
 static lv_anim_t slide_anim;
 
 static const int NOTIFICATION_HEIGHT_SINGLE = 48;
 static const int NOTIFICATION_HEIGHT_DOUBLE = 80;
+static const int CONTENT_PADDING = 16;
+static const int BAR_HEIGHT = 3;
+static const int BAR_BOTTOM_INSET = 8;
+static const int SEGMENT_GAP = 3;
 static const int SLIDE_DURATION = 300;
 static const int AUTO_HIDE_DELAY = 3000;
 static const int RAPID_UPDATE_DELAY = 1500;
+static const int HOLD_UNTIL_UPDATED = 0;
+
+static const uint32_t COLOR_SHELL = 0x1C1C1E;
+static const uint32_t COLOR_TEXT = 0xFFFFFF;
+static const uint32_t COLOR_TRACK = 0x3A3A3C;
+static const uint32_t COLOR_BUSY = 0x007AFF;
+static const uint32_t COLOR_OK = 0x32D74B;
+static const uint32_t COLOR_WARN = 0xFF9500;
+static const uint32_t COLOR_MUTED = 0x8E8E93;
+static const uint32_t COLOR_ERROR = 0xFF3B30;
 
 static bool notification_visible = false;
 static bool animation_in_progress = false;
-static NotificationType current_type = NotificationType::MESSAGE;
-static void slide_down_anim_cb(void* obj, int32_t value);
-static void slide_up_anim_cb(void* obj, int32_t value);
+static int current_height = NOTIFICATION_HEIGHT_SINGLE;
+static int auto_hide_delay = AUTO_HIDE_DELAY;
+
+static void slide_anim_cb(void* obj, int32_t value);
 static void slide_down_complete_cb(lv_anim_t* anim);
 static void slide_up_complete_cb(lv_anim_t* anim);
 static void auto_hide_timer_cb(lv_timer_t* timer);
 static void notification_gesture_cb(lv_event_t* e);
-static void resizeNotificationContainer(int height);
+
+static lv_obj_t* createSegment(lv_obj_t* parent) {
+    lv_obj_t* segment = lv_obj_create(parent);
+    lv_obj_set_size(segment, SCR_WIDTH - 4 * CONTENT_PADDING, BAR_HEIGHT);
+    lv_obj_set_style_bg_color(segment, lv_color_hex(COLOR_TRACK), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(segment, LV_OPA_100, LV_PART_MAIN);
+    lv_obj_set_style_border_width(segment, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(segment, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(segment, 2, LV_PART_MAIN);
+    lv_obj_clear_flag(segment, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(segment, LV_OBJ_FLAG_HIDDEN);
+    return segment;
+}
 
 void init() {
     if (notification_container != nullptr) {
@@ -37,77 +65,88 @@ void init() {
     if (!parent) {
         parent = lv_scr_act();
     }
-    
+
     notification_container = lv_obj_create(parent);
     lv_obj_set_size(notification_container, SCR_WIDTH, NOTIFICATION_HEIGHT_SINGLE);
-    
+
     lv_obj_move_to_index(notification_container, -1);
-    
+
     int notification_y = statusbarTop + statusbarHeight - NOTIFICATION_HEIGHT_SINGLE;
     lv_obj_set_pos(notification_container, 0, notification_y);
-    
-    lv_obj_set_style_bg_color(notification_container, lv_color_hex(0x1C1C1E), LV_PART_MAIN);
+
+    lv_obj_set_style_bg_color(notification_container, lv_color_hex(COLOR_SHELL), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(notification_container, LV_OPA_100, LV_PART_MAIN);
     lv_obj_set_style_border_width(notification_container, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(notification_container, 12, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(notification_container, 12, LV_PART_MAIN);
     lv_obj_set_style_shadow_color(notification_container, lv_color_hex(0x000000), LV_PART_MAIN);
     lv_obj_set_style_shadow_opa(notification_container, LV_OPA_40, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(notification_container, 16, LV_PART_MAIN);
-    
+    lv_obj_set_style_pad_all(notification_container, CONTENT_PADDING, LV_PART_MAIN);
+
     notification_label = lv_label_create(notification_container);
     lv_label_set_text(notification_label, "");
     lv_obj_set_style_text_font(notification_label, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(notification_label, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_text_color(notification_label, lv_color_hex(COLOR_TEXT), LV_PART_MAIN);
     lv_obj_align(notification_label, LV_ALIGN_LEFT_MID, 0, 0);
-    
+
     volume_level_label = lv_label_create(notification_container);
     lv_label_set_text(volume_level_label, "");
     lv_obj_set_style_text_font(volume_level_label, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(volume_level_label, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_text_color(volume_level_label, lv_color_hex(COLOR_TEXT), LV_PART_MAIN);
     lv_obj_align(volume_level_label, LV_ALIGN_TOP_RIGHT, -8, 8);
-    
+    lv_obj_add_flag(volume_level_label, LV_OBJ_FLAG_HIDDEN);
+
     volume_bar = lv_bar_create(notification_container);
-    lv_obj_set_size(volume_bar, SCR_WIDTH - 64, 3);
-    lv_obj_align(volume_bar, LV_ALIGN_BOTTOM_MID, 0, -8);
-    lv_obj_set_style_bg_color(volume_bar, lv_color_hex(0x3A3A3C), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(volume_bar, lv_color_hex(0x007AFF), LV_PART_INDICATOR);
+    lv_obj_set_size(volume_bar, SCR_WIDTH - 4 * CONTENT_PADDING, BAR_HEIGHT);
+    lv_obj_align(volume_bar, LV_ALIGN_BOTTOM_MID, 0, -BAR_BOTTOM_INSET);
+    lv_obj_set_style_bg_color(volume_bar, lv_color_hex(COLOR_TRACK), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(volume_bar, lv_color_hex(COLOR_BUSY), LV_PART_INDICATOR);
     lv_obj_set_style_radius(volume_bar, 2, LV_PART_MAIN);
     lv_obj_set_style_radius(volume_bar, 2, LV_PART_INDICATOR);
     lv_obj_set_style_bg_opa(volume_bar, LV_OPA_100, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(volume_bar, LV_OPA_100, LV_PART_INDICATOR);
     lv_obj_add_flag(volume_bar, LV_OBJ_FLAG_HIDDEN);
-    
+
+    for (size_t i = 0; i < HubPowerSession::CAPACITY; i++) {
+        power_segments[i] = createSegment(notification_container);
+    }
+
     lv_obj_add_event_cb(notification_container, notification_gesture_cb, LV_EVENT_GESTURE, nullptr);
     lv_obj_clear_flag(notification_container, LV_OBJ_FLAG_GESTURE_BUBBLE);
-    
+
     lv_obj_clear_flag(notification_container, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(notification_container, LV_OBJ_FLAG_FLOATING);
-    
+
     lv_obj_add_flag(notification_container, LV_OBJ_FLAG_HIDDEN);
-    
+
     omote_log_d("Notification system initialized\r\n");
 }
 
-static void slide_down_anim_cb(void* obj, int32_t value) {
+static void slide_anim_cb(void* obj, int32_t value) {
     lv_obj_set_y((lv_obj_t*)obj, value);
 }
 
-static void slide_up_anim_cb(void* obj, int32_t value) {
-    lv_obj_set_y((lv_obj_t*)obj, value);
+static void cancelAutoHide() {
+    if (!hide_timer) {
+        return;
+    }
+    lv_timer_del(hide_timer);
+    hide_timer = nullptr;
+}
+
+static void armAutoHide() {
+    cancelAutoHide();
+    if (auto_hide_delay == HOLD_UNTIL_UPDATED) {
+        return;
+    }
+    hide_timer = lv_timer_create(auto_hide_timer_cb, auto_hide_delay, nullptr);
+    lv_timer_set_repeat_count(hide_timer, 1);
 }
 
 static void slide_down_complete_cb(lv_anim_t* anim) {
     animation_in_progress = false;
     notification_visible = true;
-    
-    if (hide_timer) {
-        lv_timer_del(hide_timer);
-    }
-    
-    int delay = (current_type == NotificationType::VOLUME) ? RAPID_UPDATE_DELAY : AUTO_HIDE_DELAY;
-    hide_timer = lv_timer_create(auto_hide_timer_cb, delay, nullptr);
-    lv_timer_set_repeat_count(hide_timer, 1);
+    armAutoHide();
 }
 
 static void slide_up_complete_cb(lv_anim_t* anim) {
@@ -117,6 +156,7 @@ static void slide_up_complete_cb(lv_anim_t* anim) {
 }
 
 static void auto_hide_timer_cb(lv_timer_t* timer) {
+    hide_timer = nullptr;
     if (notification_visible && !animation_in_progress) {
         hideNotification();
     }
@@ -124,75 +164,74 @@ static void auto_hide_timer_cb(lv_timer_t* timer) {
 
 static void notification_gesture_cb(lv_event_t* e) {
     lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-    
+
     if (dir == LV_DIR_TOP && notification_visible) {
         hideNotification();
     }
 }
 
-static void resizeNotificationContainer(int height) {
-    if (!notification_container) return;
-    
-    lv_obj_set_size(notification_container, SCR_WIDTH, height);
-    
-    int notification_y = statusbarTop + statusbarHeight - height;
-    lv_obj_set_pos(notification_container, 0, notification_y);
-    
-    if (height == NOTIFICATION_HEIGHT_SINGLE) {
+static void setHidden(lv_obj_t* obj, bool hidden) {
+    if (hidden) {
+        lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+static void showOnlyWidgetsFor(NotificationType type) {
+    setHidden(volume_bar, type != NotificationType::VOLUME);
+    setHidden(volume_level_label, type != NotificationType::VOLUME);
+    for (size_t i = 0; i < HubPowerSession::CAPACITY; i++) {
+        setHidden(power_segments[i], true);
+    }
+    lv_label_set_recolor(notification_label, false);
+}
+
+static void layoutContainer() {
+    lv_obj_set_size(notification_container, SCR_WIDTH, current_height);
+    lv_obj_set_pos(notification_container, 0, statusbarTop + statusbarHeight - current_height);
+
+    if (current_height == NOTIFICATION_HEIGHT_SINGLE) {
         lv_obj_align(notification_label, LV_ALIGN_LEFT_MID, 0, 0);
-        lv_obj_add_flag(volume_bar, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(volume_level_label, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_align(notification_label, LV_ALIGN_TOP_LEFT, 0, 8);
         lv_obj_align(volume_level_label, LV_ALIGN_TOP_RIGHT, -8, 8);
-        lv_obj_clear_flag(volume_level_label, LV_OBJ_FLAG_HIDDEN);
     }
-    
+
     lv_obj_invalidate(notification_container);
 }
 
 static void showNotification() {
-    if (!notification_container) {
-        init();
-    }
-    
-    if (hide_timer) {
-        lv_timer_del(hide_timer);
-        hide_timer = nullptr;
-    }
-    
     if (notification_visible && !animation_in_progress) {
-        int delay = (current_type == NotificationType::VOLUME) ? RAPID_UPDATE_DELAY : AUTO_HIDE_DELAY;
-        hide_timer = lv_timer_create(auto_hide_timer_cb, delay, nullptr);
-        lv_timer_set_repeat_count(hide_timer, 1);
+        armAutoHide();
         return;
     }
-    
+
     if (animation_in_progress) {
         return;
     }
-    
+
+    cancelAutoHide();
+
     lv_obj_clear_flag(notification_container, LV_OBJ_FLAG_HIDDEN);
-    
+
     lv_obj_move_to_index(notification_container, -1);
-    
-    int height = (current_type == NotificationType::VOLUME) ? NOTIFICATION_HEIGHT_DOUBLE : NOTIFICATION_HEIGHT_SINGLE;
-    
-    resizeNotificationContainer(height);
-    
-    int start_y = statusbarTop + statusbarHeight - height;
+
+    layoutContainer();
+
+    int start_y = statusbarTop + statusbarHeight - current_height;
     int end_y = statusbarTop + statusbarHeight;
-    
+
     lv_obj_set_pos(notification_container, 0, start_y);
-    
+
     lv_anim_init(&slide_anim);
     lv_anim_set_var(&slide_anim, notification_container);
     lv_anim_set_values(&slide_anim, start_y, end_y);
     lv_anim_set_time(&slide_anim, SLIDE_DURATION);
-    lv_anim_set_exec_cb(&slide_anim, slide_down_anim_cb);
+    lv_anim_set_exec_cb(&slide_anim, slide_anim_cb);
     lv_anim_set_ready_cb(&slide_anim, slide_down_complete_cb);
     lv_anim_set_path_cb(&slide_anim, lv_anim_path_ease_out);
-    
+
     animation_in_progress = true;
     lv_anim_start(&slide_anim);
 }
@@ -201,111 +240,208 @@ void hideNotification() {
     if (!notification_visible || animation_in_progress) {
         return;
     }
-    
-    if (hide_timer) {
-        lv_timer_del(hide_timer);
-        hide_timer = nullptr;
-    }
-    
+
+    cancelAutoHide();
+
     int start_y = lv_obj_get_y(notification_container);
-    int height = (current_type == NotificationType::VOLUME) ? NOTIFICATION_HEIGHT_DOUBLE : NOTIFICATION_HEIGHT_SINGLE;
-    int end_y = statusbarTop + statusbarHeight - height;
-    
+    int end_y = statusbarTop + statusbarHeight - current_height;
+
     lv_anim_init(&slide_anim);
     lv_anim_set_var(&slide_anim, notification_container);
     lv_anim_set_values(&slide_anim, start_y, end_y);
     lv_anim_set_time(&slide_anim, SLIDE_DURATION);
-    lv_anim_set_exec_cb(&slide_anim, slide_up_anim_cb);
+    lv_anim_set_exec_cb(&slide_anim, slide_anim_cb);
     lv_anim_set_ready_cb(&slide_anim, slide_up_complete_cb);
     lv_anim_set_path_cb(&slide_anim, lv_anim_path_ease_in);
-    
+
     animation_in_progress = true;
     lv_anim_start(&slide_anim);
 }
 
-void showVolumeNotification(double level, bool is_muted) {
-    current_type = NotificationType::VOLUME;
-    
-    char volume_text[64];
-    if (is_muted) {
-        snprintf(volume_text, sizeof(volume_text), LV_SYMBOL_VOLUME_MID " Volume");
-    } else {
-        snprintf(volume_text, sizeof(volume_text), LV_SYMBOL_VOLUME_MID " Volume");
+static void beginNotification(NotificationType type, int height, int hide_delay) {
+    if (!notification_container) {
+        init();
     }
-    
-    lv_label_set_text(notification_label, volume_text);
-    
+    current_height = height;
+    auto_hide_delay = hide_delay;
+    showOnlyWidgetsFor(type);
+    lv_obj_set_style_text_color(notification_label, lv_color_hex(COLOR_TEXT), LV_PART_MAIN);
+    // The volume row shares its line with the right-aligned level; every other
+    // headline owns the full width and ellipsizes instead of running off the edge.
+    if (type == NotificationType::VOLUME) {
+        lv_obj_set_size(notification_label, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        return;
+    }
+    lv_obj_set_size(notification_label, SCR_WIDTH - 2 * CONTENT_PADDING,
+                    lv_font_get_line_height(&lv_font_montserrat_14));
+    lv_label_set_long_mode(notification_label, LV_LABEL_LONG_DOT);
+}
+
+void showVolumeNotification(double level, bool is_muted) {
+    beginNotification(NotificationType::VOLUME, NOTIFICATION_HEIGHT_DOUBLE, RAPID_UPDATE_DELAY);
+
+    lv_label_set_text(notification_label, LV_SYMBOL_VOLUME_MID " Volume");
+
     char level_text[32];
     if (is_muted) {
         snprintf(level_text, sizeof(level_text), "MUTED");
     } else {
         snprintf(level_text, sizeof(level_text), "%.1f dB", level);
     }
-    
+
     lv_label_set_text(volume_level_label, level_text);
-    
-    lv_obj_clear_flag(volume_bar, LV_OBJ_FLAG_HIDDEN);
-    
-    lv_obj_invalidate(notification_label);
-    lv_obj_invalidate(volume_level_label);
-    lv_obj_invalidate(volume_bar);
-    
+
     if (is_muted) {
         lv_bar_set_value(volume_bar, 0, LV_ANIM_OFF);
-        lv_obj_set_style_bg_color(volume_bar, lv_color_hex(0x8E8E93), LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(volume_bar, lv_color_hex(COLOR_MUTED), LV_PART_INDICATOR);
     } else {
         const double dB_floor = -80.0;
         const double dB_ceiling = 23.0;
         const double dB_range = dB_ceiling - dB_floor;
-        
+
         int percentage = (int)((level - dB_floor) * 100.0 / dB_range);
         if (percentage < 0) percentage = 0;
         if (percentage > 100) percentage = 100;
-        
+
         lv_bar_set_value(volume_bar, percentage, LV_ANIM_ON);
-        lv_obj_set_style_bg_color(volume_bar, lv_color_hex(0x007AFF), LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(volume_bar, lv_color_hex(COLOR_BUSY), LV_PART_INDICATOR);
     }
-    
+
     showNotification();
-    
-    omote_log_d("Volume notification: %s\r\n", volume_text);
+
+    omote_log_d("Volume notification: %s\r\n", level_text);
 }
 
 void showPowerNotification(bool is_on) {
-    current_type = NotificationType::POWER;
-    
+    beginNotification(NotificationType::POWER, NOTIFICATION_HEIGHT_SINGLE, AUTO_HIDE_DELAY);
+
     if (is_on) {
         lv_label_set_text(notification_label, LV_SYMBOL_POWER "  Device powered on");
     } else {
         lv_label_set_text(notification_label, LV_SYMBOL_POWER "  Device powered off");
     }
-    
-    lv_obj_set_style_text_color(notification_label, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
-    
+
     showNotification();
-    
+
     omote_log_d("Power notification: %s\r\n", is_on ? "ON" : "OFF");
 }
 
-void showMessageNotification(const std::string& message) {
-    current_type = NotificationType::MESSAGE;
-    
-    lv_label_set_text(notification_label, message.c_str());
-    lv_obj_set_style_text_color(notification_label, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
-    
+static int holdFor(HubPowerSession::Phase phase) {
+    switch (phase) {
+        case HubPowerSession::Phase::RESOLVED:
+            return RAPID_UPDATE_DELAY;
+        case HubPowerSession::Phase::TIMED_OUT:
+            return AUTO_HIDE_DELAY;
+        default:
+            return HOLD_UNTIL_UPDATED;
+    }
+}
+
+static uint32_t colorFor(HubPowerSession::Tone tone) {
+    switch (tone) {
+        case HubPowerSession::Tone::OK:
+            return COLOR_OK;
+        case HubPowerSession::Tone::WARN:
+            return COLOR_WARN;
+        default:
+            return COLOR_TEXT;
+    }
+}
+
+static int countWith(const HubPowerSession& session, HubPowerSession::Outcome outcome) {
+    int matches = 0;
+    for (size_t i = 0; i < session.size(); i++) {
+        if (session.at(i).outcome == outcome) {
+            matches++;
+        }
+    }
+    return matches;
+}
+
+// The bar is a progress count, not a device map: confirmations fill green from
+// the left, failures follow in amber, the rest stay on the track. Which device
+// is which lives in the headline.
+static uint32_t segmentColor(int index, int confirmed, int failed) {
+    if (index < confirmed) {
+        return COLOR_OK;
+    }
+    if (index < confirmed + failed) {
+        return COLOR_WARN;
+    }
+    return COLOR_TRACK;
+}
+
+static void setHeadline(const HubPowerSession& session) {
+    const std::string headline = session.headline();
+    switch (session.tone()) {
+        case HubPowerSession::Tone::OK:
+            lv_label_set_text_fmt(notification_label, LV_SYMBOL_OK "  %s", headline.c_str());
+            break;
+        case HubPowerSession::Tone::WARN:
+            lv_label_set_text_fmt(notification_label, LV_SYMBOL_WARNING "  %s", headline.c_str());
+            break;
+        default:
+            // Recolor tints only the glyph; it stays off for the other tones so a
+            // hub error message containing '#' cannot be misparsed.
+            lv_label_set_recolor(notification_label, true);
+            lv_label_set_text_fmt(notification_label, "#007AFF " LV_SYMBOL_POWER "#  %s", headline.c_str());
+            break;
+    }
+    lv_obj_set_style_text_color(notification_label, lv_color_hex(colorFor(session.tone())), LV_PART_MAIN);
+}
+
+static void layoutSegments(const HubPowerSession& session) {
+    const int count = (int)session.size();
+    if (count == 0) {
+        return;
+    }
+    const int usable = SCR_WIDTH - 2 * CONTENT_PADDING;
+    const int width = (usable - SEGMENT_GAP * (count - 1)) / count;
+    const int x0 = (usable - (width * count + SEGMENT_GAP * (count - 1))) / 2;
+    const int confirmed = countWith(session, HubPowerSession::Outcome::CONFIRMED);
+    const int failed = countWith(session, HubPowerSession::Outcome::FAILED);
+
+    for (int i = 0; i < count; i++) {
+        lv_obj_t* segment = power_segments[i];
+        lv_obj_set_size(segment, width, BAR_HEIGHT);
+        lv_obj_align(segment, LV_ALIGN_BOTTOM_LEFT, x0 + i * (width + SEGMENT_GAP), -BAR_BOTTOM_INSET);
+        lv_obj_set_style_bg_color(segment, lv_color_hex(segmentColor(i, confirmed, failed)), LV_PART_MAIN);
+        setHidden(segment, false);
+    }
+}
+
+void showPowerSession(const HubPowerSession& session) {
+    if (session.phase() == HubPowerSession::Phase::IDLE) {
+        return;
+    }
+    beginNotification(NotificationType::POWER_SESSION, NOTIFICATION_HEIGHT_DOUBLE, holdFor(session.phase()));
+
+    setHeadline(session);
+    layoutSegments(session);
+
     showNotification();
-    
+
+    omote_log_d("Power session: %s\r\n", session.headline().c_str());
+}
+
+void showMessageNotification(const std::string& message) {
+    beginNotification(NotificationType::MESSAGE, NOTIFICATION_HEIGHT_SINGLE, AUTO_HIDE_DELAY);
+
+    lv_label_set_text(notification_label, message.c_str());
+
+    showNotification();
+
     omote_log_d("Message notification: %s\r\n", message.c_str());
 }
 
 void showErrorNotification(const std::string& message) {
-    current_type = NotificationType::ERROR;
-    
+    beginNotification(NotificationType::ERROR, NOTIFICATION_HEIGHT_SINGLE, AUTO_HIDE_DELAY);
+
     lv_label_set_text(notification_label, message.c_str());
-    lv_obj_set_style_text_color(notification_label, lv_color_hex(0xFF3B30), LV_PART_MAIN);
-    
+    lv_obj_set_style_text_color(notification_label, lv_color_hex(COLOR_ERROR), LV_PART_MAIN);
+
     showNotification();
-    
+
     omote_log_d("Error notification: %s\r\n", message.c_str());
 }
 

@@ -60,6 +60,7 @@ void register_device_denonAvr() {
 
 
   #if (ENABLE_HUB_COMMUNICATION > 0)
+    register_hub_device_name("DENON_AVR", "Denon AVR");
     register_hub_command(&DENONAVR_POWER_ON, "DENON_AVR", "POWER_ON");
     register_hub_command(&DENONAVR_POWER_OFF, "DENON_AVR", "POWER_OFF");
     register_hub_command(&DENONAVR_VOL_MINUS, "DENON_AVR", "VOL_MINUS");

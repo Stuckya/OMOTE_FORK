@@ -16,7 +16,13 @@
 #include "guis/gui_BLEpairing.h"
 #include "hub/hubManager.h"
 #include "hub/protoCodec.h"
+#include "applicationInternal/hub/powerStatus.h"
 #include "applicationInternal/gui/guiStatusUpdate.h"
+#include <hubDeviceStateCache.h>
+
+// Latest per-device snapshots from the hub, fed by wake syncs and by pushes
+// when the hub runs with publish_device_state on.
+static HubDeviceStateCache hubDeviceStateCache;
 
 uint16_t COMMAND_UNKNOWN;
 
@@ -184,7 +190,10 @@ void sendHubMessage(const std::string& device, omote_OmoteCommand command, omote
               device.c_str(), command);
   
   omote_RemoteEvent event = Hub::ProtoCodec::createRemoteEvent(device, command, type);
-  HubManager::getInstance().sendRemoteEvent(event);
+  if (!HubManager::getInstance().sendRemoteEvent(event)) {
+    return;
+  }
+  Hub::PowerStatus::commandSent(device, command, hubDeviceStateCache.find(device));
 }
 
 // Overload for string commands (for backward compatibility with scene registration)
@@ -358,17 +367,12 @@ void receiveMQTTmessage_cb(std::string topic, std::string payload) {
 #include "applicationInternal/hub/pairingManager.h"
 #include "applicationInternal/hub/deviceManager.h"
 #include "applicationInternal/gui/guiNotification.h"
-#include <hubDeviceStateCache.h>
-
-// Latest per-device snapshots from the hub, fed by wake syncs and by pushes
-// when the hub runs with publish_device_state on.
-static HubDeviceStateCache hubDeviceStateCache;
-
 // A wake-fill snapshot (first sighting) merges silently; a later push that moves
 // the active scene's volume device is the one out-of-band fact worth showing.
 static void mergePushedDeviceState(const omote_DeviceState& state) {
   const bool volumeMoved = hubDeviceStateCache.volumeChangedBy(state);
   hubDeviceStateCache.merge(state);
+  Hub::PowerStatus::observed(state);
   if (!volumeMoved || HubManager::getInstance().volumeDeviceId() != state.device_id) {
     return;
   }
@@ -398,7 +402,8 @@ void handleHubCommandResult(const omote_CommandResult& result) {
       if (result.which_data == omote_CommandResult_power_tag) {
         const auto& power = result.data.power;
         omote_log_d("Power update: is_on=%s\r\n", power.is_on ? "true" : "false");
-        
+        // The reply names no device; an open session reports from observed state instead.
+        if (Hub::PowerStatus::isActive()) break;
         GuiNotification::showPowerNotification(power.is_on);
       }
       break;
@@ -408,7 +413,7 @@ void handleHubCommandResult(const omote_CommandResult& result) {
       if (result.which_data == omote_CommandResult_error_tag) {
         const auto& error = result.data.error;
         omote_log_e("Hub error: %s\r\n", error.message);
-        
+        if (Hub::PowerStatus::noteError(error.message)) break;
         GuiNotification::showErrorNotification(error.message);
       }
       break;

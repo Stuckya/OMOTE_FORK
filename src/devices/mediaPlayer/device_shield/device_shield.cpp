@@ -27,6 +27,7 @@ void register_device_shield() {
 
     #if (ENABLE_HUB_COMMUNICATION > 0)
     // Register hub commands for Nvidia Shield TV when Hub is enabled
+    register_hub_device_name("ANDROID_TV", "Shield");
     register_hub_command(&SHIELD_POWER_ON, "ANDROID_TV", "POWER_ON");
     register_hub_command(&SHIELD_POWER_OFF, "ANDROID_TV", "POWER_OFF");
     register_hub_command(&SHIELD_MENU, "ANDROID_TV", "MENU");
