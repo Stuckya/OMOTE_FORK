@@ -60,7 +60,8 @@ static lv_obj_t* createSegment(lv_obj_t* parent) {
     return segment;
 }
 
-static void dismiss_event_cb(lv_event_t*) {
+static void cancel_event_cb(lv_event_t*) {
+    Hub::SleepTimer::cancel();
     hideNotification();
 }
 
@@ -75,7 +76,9 @@ static void createActionRow() {
     // the container's, so the divider spans the banner and clears the headline.
     lv_obj_set_width(action_row, SCR_WIDTH);
     lv_obj_align(action_row, LV_ALIGN_BOTTOM_MID, 0, CONTENT_PADDING);
-    GuiTheme::splitAction(action_row, "Dismiss", GuiTheme::kTextMute, dismiss_event_cb);
+    // Not "Dismiss": a swipe up already hides any banner, so the slot answers
+    // the question the warning actually raises -- stop it, or push it back.
+    GuiTheme::splitAction(action_row, "Cancel", GuiTheme::kRed, cancel_event_cb);
     GuiTheme::splitAction(action_row, "+15 min", GuiTheme::kBlue, extend_event_cb);
     lv_obj_add_flag(action_row, LV_OBJ_FLAG_HIDDEN);
 }
