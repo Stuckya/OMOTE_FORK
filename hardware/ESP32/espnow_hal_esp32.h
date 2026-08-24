@@ -14,4 +14,7 @@ void espnow_shutdown_HAL();
 
 typedef void (*tAnnounceEspNowMessage_cb)(const uint8_t* data, size_t len);
 
+// The callback is invoked from espnow_loop_HAL(), never from the radio thread
+// that receives the frame, so handlers may touch LVGL and other main-loop-only
+// state. Inbound frames are buffered between the two.
 void set_announceEspNowMessage_cb_HAL(tAnnounceEspNowMessage_cb pAnnounceEspNowMessage_cb);

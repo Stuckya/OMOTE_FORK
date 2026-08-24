@@ -1,4 +1,5 @@
 #include "espnow_hal_windows_linux.h"
+#include "espNowRxQueue.h"
 #include "mock_hub_simulator.h"
 #include <iostream>
 #include <cstring>
@@ -43,6 +44,14 @@ std::string getMACaddress() {
 // Callback function pointer
 static tAnnounceEspNowMessage_cb espNowMessageCallback = nullptr;
 
+static EspNowRxQueue rxQueue;
+
+// The mock hub delivers from its own thread, so it feeds the queue rather than
+// the callback, matching how the ESP32 HAL keeps dispatch on the main loop.
+static void queueFromMockHub(const uint8_t* data, size_t len) {
+  rxQueue.push(data, len);
+}
+
 void set_announceEspNowMessage_cb_HAL(tAnnounceEspNowMessage_cb callback) {
   espNowMessageCallback = callback;
   std::cout << "ESP-NOW message callback registered (simulator with mock hub)" << std::endl;
@@ -50,15 +59,21 @@ void set_announceEspNowMessage_cb_HAL(tAnnounceEspNowMessage_cb callback) {
 
 void init_espnow_HAL() {
   std::cout << "ESP-NOW initialized (simulator with mock hub)" << std::endl;
-  
-  // Start the mock hub simulator
-  if (espNowMessageCallback) {
-    startMockHubSimulator(espNowMessageCallback);
-  }
+  startMockHubSimulator(&queueFromMockHub);
 }
 
 void espnow_loop_HAL() {
-  // Nothing to do in the simulator - mock hub runs in background thread
+  if (espNowMessageCallback == nullptr) {
+    return;
+  }
+
+  EspNowRxQueue::Frame frame;
+  for (size_t drained = 0; drained < EspNowRxQueue::CAPACITY; drained++) {
+    if (!rxQueue.pop(frame)) {
+      return;
+    }
+    espNowMessageCallback(frame.bytes, frame.length);
+  }
 }
 
 bool publishEspNowMessage_HAL(const uint8_t* data, size_t len) {
