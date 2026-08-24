@@ -8,6 +8,10 @@
 #include <vector>
 #include <string>
 
+// Fires when an event actually reaches the transport, which on a wake can be
+// seconds after it was accepted into the outbound queue.
+typedef void (*EventTransmittedCallback)(const omote_RemoteEvent& event);
+
 class HubManager {
 private:
   std::unique_ptr<HubTransportBase> activeTransport;
@@ -21,6 +25,8 @@ private:
   std::string volumeDevice;
   static const unsigned long STATE_SYNC_DELAY = 100; // ms
   static const unsigned long RUNTIME_TTL_MS = 1500;
+
+  EventTransmittedCallback eventTransmittedCallback = nullptr;
   HubOutboundQueue outboundQueue;
 
   std::function<void(const omote_CommandResult&)> messageHandler;
@@ -36,6 +42,7 @@ private:
   bool hasPendingOutboundEvents() const;
   bool shouldQueueRemoteEvent() const;
   bool sendImmediatelyOrQueueForRetry(const omote_RemoteEvent& event);
+  void noteTransmitted(const omote_RemoteEvent& event);
   unsigned long currentQueueTtlMs() const;
   bool enqueueEvent(const omote_RemoteEvent& event);
   void flushQueue();
@@ -55,6 +62,8 @@ public:
   void process();
   
   bool sendRemoteEvent(const omote_RemoteEvent& event);
+
+  void setEventTransmittedCallback(EventTransmittedCallback callback);
   
   bool isReady() const;
   

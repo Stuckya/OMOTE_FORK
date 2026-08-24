@@ -179,38 +179,10 @@ void show_confirm_alert(lv_event_t *e) {
   lv_label_set_long_mode(msg, LV_LABEL_LONG_WRAP);
   lv_obj_set_style_text_align(msg, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
 
-  lv_obj_t *btns = lv_obj_create(alert);
-  lv_obj_remove_style_all(btns);
-  lv_obj_set_width(btns, lv_pct(100));
-  lv_obj_set_height(btns, 40);
-  lv_obj_set_flex_flow(btns, LV_FLEX_FLOW_ROW);
-  lv_obj_set_style_border_color(btns, GuiTheme::color(GuiTheme::kSurface3),
-                                LV_PART_MAIN);
-  lv_obj_set_style_border_side(btns, LV_BORDER_SIDE_TOP, LV_PART_MAIN);
-  lv_obj_set_style_border_width(btns, 1, LV_PART_MAIN);
-
-  auto make_alert_btn = [&](const char *text, uint32_t color,
-                            lv_event_cb_t cb, void *user_data) {
-    lv_obj_t *b = lv_btn_create(btns);
-    lv_obj_remove_style_all(b);
-    lv_obj_set_height(b, lv_pct(100));
-    lv_obj_set_flex_grow(b, 1);
-    lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, user_data);
-    lv_obj_t *l = lv_label_create(b);
-    lv_label_set_text(l, text);
-    lv_obj_set_style_text_font(l, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(l, GuiTheme::color(color), LV_PART_MAIN);
-    lv_obj_center(l);
-    return b;
-  };
-
-  lv_obj_t *cancel = make_alert_btn("Cancel", GuiTheme::kBlue,
-                                    confirm_dismiss_cb, scrim);
-  lv_obj_set_style_border_color(cancel, GuiTheme::color(GuiTheme::kSurface3),
-                                LV_PART_MAIN);
-  lv_obj_set_style_border_side(cancel, LV_BORDER_SIDE_RIGHT, LV_PART_MAIN);
-  lv_obj_set_style_border_width(cancel, 1, LV_PART_MAIN);
-  make_alert_btn("Forget", GuiTheme::kRed, forget_confirmed_cb, nullptr);
+  lv_obj_t *btns = GuiTheme::splitActionRow(alert, 40);
+  GuiTheme::splitAction(btns, "Cancel", GuiTheme::kBlue, confirm_dismiss_cb,
+                        scrim);
+  GuiTheme::splitAction(btns, "Forget", GuiTheme::kRed, forget_confirmed_cb);
 }
 
 const char *requirement_text(omote_PairingRequirement req) {
@@ -382,20 +354,11 @@ void gui_devices_show_detail(const Hub::DeviceEntry &device) {
   small_label(row, format_paired_date(device.pairedAt).c_str(),
               GuiTheme::kWhite);
 
-  lv_obj_t *spacer = lv_obj_create(overlay);
-  lv_obj_remove_style_all(spacer);
-  lv_obj_set_width(spacer, lv_pct(100));
-  lv_obj_set_flex_grow(spacer, 1);
+  GuiTheme::spacer(overlay);
 
-  // Destructive action: red-tinted background, red text, gated by the alert.
-  lv_obj_t *forget = GuiTheme::primaryButton(overlay, "Forget This Device",
-                                             GuiTheme::kRed, show_confirm_alert);
-  lv_obj_set_style_bg_opa(forget, LV_OPA_20, LV_PART_MAIN);
-  lv_obj_t *forget_label = lv_obj_get_child(forget, 0);
-  if (forget_label != nullptr) {
-    lv_obj_set_style_text_color(forget_label, GuiTheme::color(GuiTheme::kRed),
-                                LV_PART_MAIN);
-  }
+  // Destructive action, gated by the alert.
+  GuiTheme::tintedButton(overlay, "Forget This Device", GuiTheme::kRed,
+                         LV_OPA_20, GuiTheme::kRed, show_confirm_alert);
 }
 
 void gui_devices_dismiss_overlay() {

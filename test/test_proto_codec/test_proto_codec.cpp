@@ -1,6 +1,8 @@
 #include <unity.h>
 #include <cstring>
 
+#include <pb_decode.h>
+
 #include "applicationInternal/hub/protoCodec.h"
 
 using Hub::ProtoCodec;
@@ -173,8 +175,53 @@ void test_garbage_bytes_fail_to_decode() {
   TEST_ASSERT_FALSE(ProtoCodec::decodeCommandResult(garbage, sizeof(garbage), decoded));
 }
 
+void test_sleep_timer_set_carries_its_duration_in_a_typed_field() {
+  const omote_RemoteEvent event =
+      ProtoCodec::createSleepTimerEvent(omote_OmoteCommand_SLEEP_TIMER_SET, 45);
+
+  TEST_ASSERT_EQUAL(omote_OmoteCommand_SLEEP_TIMER_SET, event.command);
+  TEST_ASSERT_EQUAL_STRING("HUB", event.device);
+  TEST_ASSERT_TRUE(event.has_sleep_timer);
+  TEST_ASSERT_EQUAL_UINT32(45, event.sleep_timer.minutes);
+  TEST_ASSERT_EQUAL_UINT(0, event.data.size);
+}
+
+void test_sleep_timer_extend_carries_the_increment() {
+  const omote_RemoteEvent event =
+      ProtoCodec::createSleepTimerEvent(omote_OmoteCommand_SLEEP_TIMER_EXTEND, 15);
+
+  TEST_ASSERT_TRUE(event.has_sleep_timer);
+  TEST_ASSERT_EQUAL_UINT32(15, event.sleep_timer.minutes);
+}
+
+void test_sleep_timer_cancel_carries_no_duration() {
+  const omote_RemoteEvent event =
+      ProtoCodec::createSleepTimerEvent(omote_OmoteCommand_SLEEP_TIMER_CANCEL, 0);
+
+  TEST_ASSERT_EQUAL(omote_OmoteCommand_SLEEP_TIMER_CANCEL, event.command);
+  TEST_ASSERT_FALSE(event.has_sleep_timer);
+}
+
+void test_sleep_timer_event_survives_the_wire() {
+  const omote_RemoteEvent event =
+      ProtoCodec::createSleepTimerEvent(omote_OmoteCommand_SLEEP_TIMER_SET, 90);
+  uint8_t buffer[omote_RemoteEvent_size];
+  const size_t written = ProtoCodec::encodeRemoteEvent(event, buffer, sizeof(buffer));
+  TEST_ASSERT_GREATER_THAN_UINT(0, written);
+
+  omote_RemoteEvent decoded = omote_RemoteEvent_init_zero;
+  pb_istream_t stream = pb_istream_from_buffer(buffer, written);
+  TEST_ASSERT_TRUE(pb_decode(&stream, omote_RemoteEvent_fields, &decoded));
+  TEST_ASSERT_TRUE(decoded.has_sleep_timer);
+  TEST_ASSERT_EQUAL_UINT32(90, decoded.sleep_timer.minutes);
+}
+
 int main() {
   UNITY_BEGIN();
+  RUN_TEST(test_sleep_timer_set_carries_its_duration_in_a_typed_field);
+  RUN_TEST(test_sleep_timer_extend_carries_the_increment);
+  RUN_TEST(test_sleep_timer_cancel_carries_no_duration);
+  RUN_TEST(test_sleep_timer_event_survives_the_wire);
   RUN_TEST(test_synonyms_map_to_existing_enums);
   RUN_TEST(test_existing_mappings_still_hold);
   RUN_TEST(test_unknown_command_is_unspecified);

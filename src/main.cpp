@@ -177,6 +177,7 @@ int main(int argc, char *argv[]) {
     HubManager::getInstance().init(preferredTransport);
     
     HubManager::getInstance().setMessageHandler(handleHubCommandResult);
+    HubManager::getInstance().setEventTransmittedCallback(handleHubEventTransmitted);
     
     if (should_poll_hub_state_on_startup()) {
       clear_hub_state_poll_flag();

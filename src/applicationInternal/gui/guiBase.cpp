@@ -5,6 +5,8 @@
 #include "applicationInternal/memoryUsage.h"
 #include "applicationInternal/gui/guiMemoryOptimizer.h"
 #include "applicationInternal/gui/guiNotification.h"
+#include "applicationInternal/gui/components/sleepTimerChip.h"
+#include "applicationInternal/gui/guiTheme.h"
 // for changing to scene Selection gui
 #include "applicationInternal/commandHandler.h"
 #include "applicationInternal/omote_log.h"
@@ -279,13 +281,20 @@ void init_gui_status_bar() {
   lv_obj_align(BluetoothLabel, LV_ALIGN_TOP_LEFT, 70, labelsPositionTopStatusbar);
   lv_obj_set_style_text_font(BluetoothLabel, &lv_font_montserrat_12, LV_PART_MAIN);
   // Scene ------------------------------------------------------------------------
-  SceneLabel = lv_label_create(statusbar);
+  // Scene name and sleep chip share a centered row, so the pair stays centered
+  // whatever the scene is called.
+  lv_obj_t* sceneRow = GuiTheme::flexRow(statusbar, 5);
+  lv_obj_set_height(sceneRow, statusbarHeight);
+  lv_obj_align(sceneRow, LV_ALIGN_TOP_MID, 0, 0);
+
+  SceneLabel = lv_label_create(sceneRow);
   lv_label_set_text(SceneLabel, "");
-  lv_obj_align(SceneLabel, LV_ALIGN_TOP_MID, 0, labelsPositionTopStatusbar);
   lv_obj_set_style_text_font(SceneLabel, &lv_font_montserrat_12, LV_PART_MAIN);
   lv_obj_add_flag(SceneLabel, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_user_data(SceneLabel,(void *)(intptr_t)0);
   lv_obj_add_event_cb(SceneLabel, sceneLabel_or_pageIndicator_event_cb, LV_EVENT_CLICKED, NULL);
+
+  createSleepTimerChip(sceneRow);
 
   // Battery ----------------------------------------------------------------------
   BattPercentageLabel = lv_label_create(statusbar);
@@ -376,6 +385,10 @@ void guis_doTabCreationForNavigateToLastActiveGUIofPreviousGUIlist() {
   doLogMemoryUsage();
 }
 // 6. suspend/resume the tab tree while a full-screen overlay owns the screen
+bool guis_tabsSuspended() {
+  return gui_memoryOptimizer_tabsSuspended();
+}
+
 void guis_suspendActiveTabs() {
   gui_memoryOptimizer_suspendActiveTabs(&tabview, &panel, &img1, &img2);
   doLogMemoryUsage();

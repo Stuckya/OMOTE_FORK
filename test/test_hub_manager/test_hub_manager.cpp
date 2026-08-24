@@ -383,8 +383,44 @@ void test_volume_device_follows_the_active_scene() {
   TEST_ASSERT_TRUE(manager.volumeDeviceId().empty());
 }
 
+static std::vector<omote_OmoteCommand> transmitted;
+static void recordTransmitted(const omote_RemoteEvent& event) {
+  transmitted.push_back(event.command);
+}
+
+void test_transmitted_callback_fires_on_an_immediate_send() {
+  transmitted.clear();
+  FakeHubTransport* transport = initWithFakeTransport();
+  transport->ready = true;
+  HubManager::getInstance().setEventTransmittedCallback(recordTransmitted);
+
+  HubManager::getInstance().sendRemoteEvent(makeEvent(omote_OmoteCommand_POWER_ON));
+
+  TEST_ASSERT_EQUAL_UINT(1, transmitted.size());
+  TEST_ASSERT_EQUAL(omote_OmoteCommand_POWER_ON, transmitted[0]);
+  HubManager::getInstance().setEventTransmittedCallback(NULL);
+}
+
+void test_transmitted_callback_waits_for_the_queue_to_drain() {
+  transmitted.clear();
+  FakeHubTransport* transport = initWithFakeTransport();
+  transport->ready = false;
+  HubManager::getInstance().setEventTransmittedCallback(recordTransmitted);
+
+  HubManager::getInstance().sendRemoteEvent(makeEvent(omote_OmoteCommand_POWER_ON));
+  TEST_ASSERT_EQUAL_UINT(0, transmitted.size());  // queued while the link is down
+
+  transport->ready = true;
+  HubManager::getInstance().process();
+
+  TEST_ASSERT_EQUAL_UINT(1, transmitted.size());
+  HubManager::getInstance().setEventTransmittedCallback(NULL);
+}
+
 int main() {
   UNITY_BEGIN();
+  RUN_TEST(test_transmitted_callback_fires_on_an_immediate_send);
+  RUN_TEST(test_transmitted_callback_waits_for_the_queue_to_drain);
   RUN_TEST(test_scene_sync_targets_map_to_priority_ordered_devices);
   RUN_TEST(test_scene_sync_targets_empty_for_non_hub_scenes);
   RUN_TEST(test_scene_volume_device_is_the_device_its_volume_keys_drive);

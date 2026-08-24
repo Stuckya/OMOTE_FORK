@@ -283,8 +283,44 @@ void test_reset_returns_to_idle() {
   TEST_ASSERT_EQUAL_UINT(0, session.size());
 }
 
+void test_a_slow_tv_still_confirms_before_the_session_gives_up() {
+  // The hub verifies an LG power-on for 20 polls at 0.5s; a set that gives up
+  // sooner would call a device a straggler while the hub is still watching it.
+  HubPowerSession session;
+  session.expect("LG_TV", "LG TV", true, false, T0);
+
+  TEST_ASSERT_EQUAL(Phase::IN_PROGRESS, session.tick(T0 + 8000));
+  TEST_ASSERT_TRUE(session.observe("LG_TV", true));
+  TEST_ASSERT_EQUAL(Phase::RESOLVED, session.phase());
+  TEST_ASSERT_EQUAL(Outcome::CONFIRMED, session.at(0).outcome);
+}
+
+void test_the_deadline_runs_from_transmission_not_from_the_tap() {
+  // A command tapped during a wake can sit queued while the socket reconnects.
+  // The hub cannot start working until it arrives, so neither can the clock.
+  HubPowerSession session;
+  session.expect("LG_TV", "LG TV", true, false, T0);
+
+  session.noteTransmitted(T0 + 6000);  // socket came up, queue drained
+
+  TEST_ASSERT_EQUAL(Phase::IN_PROGRESS, session.tick(T0 + 6000 + HubPowerSession::TIMEOUT_MS - 1));
+  TEST_ASSERT_EQUAL(Phase::TIMED_OUT, session.tick(T0 + 6000 + HubPowerSession::TIMEOUT_MS));
+}
+
+void test_transmission_only_rebases_a_session_in_progress() {
+  HubPowerSession session;
+  session.expect("LG_TV", "LG TV", true, true, T0);  // already on: resolves at once
+
+  session.noteTransmitted(T0 + 6000);
+
+  TEST_ASSERT_EQUAL(Phase::RESOLVED, session.phase());
+}
+
 int main() {
   UNITY_BEGIN();
+  RUN_TEST(test_the_deadline_runs_from_transmission_not_from_the_tap);
+  RUN_TEST(test_transmission_only_rebases_a_session_in_progress);
+  RUN_TEST(test_a_slow_tv_still_confirms_before_the_session_gives_up);
   RUN_TEST(test_starts_idle_with_nothing_to_show);
   RUN_TEST(test_expect_opens_a_session_in_send_order);
   RUN_TEST(test_expect_ignores_duplicates_and_caps_at_capacity);

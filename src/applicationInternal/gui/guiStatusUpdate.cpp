@@ -2,6 +2,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <string.h>
+#include <string>
 #include "applicationInternal/hardware/hardwarePresenter.h"
 #include "applicationInternal/memoryUsage.h"
 #include "guis/gui_settings.h"
@@ -106,23 +107,25 @@ static void formatTime12Hour(const struct tm* timeinfo, char* buffer, size_t buf
   }
 }
 
-void updateTimeOnGUI() {
-  if (TimeLabel == NULL) return;
-  time_t now_utc = time(NULL);
-  if (!isTimeSetOrValid(now_utc)) {
-    lv_label_set_text(TimeLabel, TIME_PLACEHOLDER);
-    return;
+std::string formatLocalClockTime(time_t utc_seconds) {
+  if (!isTimeSetOrValid(utc_seconds)) {
+    return std::string();
   }
   // Render local time explicitly: local = UTC - seconds_west_of_utc
-  time_t local_secs = now_utc - (time_t)g_seconds_west_of_utc;
+  time_t local_secs = utc_seconds - (time_t)g_seconds_west_of_utc;
   struct tm tm_local;
   if (gmtime_r(&local_secs, &tm_local) == nullptr) {
-    lv_label_set_text(TimeLabel, TIME_PLACEHOLDER);
-    return;
+    return std::string();
   }
   char time_buffer[16];
   formatTime12Hour(&tm_local, time_buffer, sizeof(time_buffer));
-  lv_label_set_text(TimeLabel, time_buffer);
+  return std::string(time_buffer);
+}
+
+void updateTimeOnGUI() {
+  if (TimeLabel == NULL) return;
+  const std::string now = formatLocalClockTime(time(NULL));
+  lv_label_set_text(TimeLabel, now.empty() ? TIME_PLACEHOLDER : now.c_str());
 }
 
 void setTime(uint32_t timestamp_utc, int32_t seconds_west_of_utc) {

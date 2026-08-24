@@ -139,8 +139,23 @@ void test_note_volume_for_an_unknown_device_seeds_its_record() {
   TEST_ASSERT_TRUE(cache.volumeChangedBy(makeDeviceWithVolume("DENON_AVR", -24.0f, true)));
 }
 
+void test_entries_can_be_walked_in_merge_order() {
+  HubDeviceStateCache cache;
+  omote_DeviceState tv = makeDevice("LG_TV");
+  tv.is_on = true;
+  cache.merge(tv);
+  cache.merge(makeDevice("DENON_AVR"));
+
+  TEST_ASSERT_EQUAL_UINT(2, cache.size());
+  TEST_ASSERT_EQUAL_STRING("LG_TV", cache.at(0)->device_id);
+  TEST_ASSERT_TRUE(cache.at(0)->is_on);
+  TEST_ASSERT_EQUAL_STRING("DENON_AVR", cache.at(1)->device_id);
+  TEST_ASSERT_NULL(cache.at(2));
+}
+
 int main() {
   UNITY_BEGIN();
+  RUN_TEST(test_entries_can_be_walked_in_merge_order);
   RUN_TEST(test_insert_stores_device);
   RUN_TEST(test_update_replaces_record_and_clears_stale_optionals);
   RUN_TEST(test_preserves_other_devices);

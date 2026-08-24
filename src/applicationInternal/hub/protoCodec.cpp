@@ -28,6 +28,16 @@ void copyRemoteEventData(omote_RemoteEvent& event, const uint8_t* data, size_t d
 
 }
 
+omote_RemoteEvent ProtoCodec::createSleepTimerEvent(omote_OmoteCommand command,
+                                                    uint16_t minutes) {
+    omote_RemoteEvent event = createRemoteEvent(HUB_DEVICE_ID, command);
+    if (command != omote_OmoteCommand_SLEEP_TIMER_CANCEL) {
+        event.has_sleep_timer = true;
+        event.sleep_timer.minutes = minutes;
+    }
+    return event;
+}
+
 omote_OmoteCommand ProtoCodec::stringToCommand(const std::string& cmd) {
     struct CommandMapping {
         const char* name;

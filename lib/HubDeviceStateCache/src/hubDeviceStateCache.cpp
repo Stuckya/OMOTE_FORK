@@ -53,6 +53,13 @@ const omote_DeviceState* HubDeviceStateCache::find(const std::string& deviceId) 
   return idx < 0 ? nullptr : &entries[idx];
 }
 
+const omote_DeviceState* HubDeviceStateCache::at(size_t index) const {
+  if (index >= count) {
+    return nullptr;
+  }
+  return &entries[index];
+}
+
 size_t HubDeviceStateCache::size() const {
   return count;
 }

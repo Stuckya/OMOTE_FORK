@@ -1,5 +1,7 @@
 #include "guiNotification.h"
 #include "guiBase.h"
+#include "applicationInternal/gui/guiTheme.h"
+#include "applicationInternal/hub/sleepTimer.h"
 #include "applicationInternal/omote_log.h"
 
 namespace GuiNotification {
@@ -9,21 +11,31 @@ static lv_obj_t* notification_label = nullptr;
 static lv_obj_t* volume_level_label = nullptr;
 static lv_obj_t* volume_bar = nullptr;
 static lv_obj_t* power_segments[HubPowerSession::CAPACITY] = {};
+static lv_obj_t* action_row = nullptr;
+// A warning that arrived mid-slide. The sleep timer's warning edge is consumed
+// once, so dropping it here would lose the only notice before an automatic
+// power-off.
+static bool warning_pending = false;
 static lv_timer_t* hide_timer = nullptr;
 static lv_anim_t slide_anim;
 
 static const int NOTIFICATION_HEIGHT_SINGLE = 48;
 static const int NOTIFICATION_HEIGHT_DOUBLE = 80;
+// Tall enough for a headline plus a full-size action pair: the banner's actions
+// are the same buttons as the sleep sheet's, so they read the same everywhere.
+static const int NOTIFICATION_HEIGHT_ACTIONS = 104;
 static const int CONTENT_PADDING = 16;
 static const int BAR_HEIGHT = 3;
 static const int BAR_BOTTOM_INSET = 8;
 static const int SEGMENT_GAP = 3;
+static const int ACTION_HEIGHT = 40;
+static const int ACTION_GAP = 8;
 static const int SLIDE_DURATION = 300;
 static const int AUTO_HIDE_DELAY = 3000;
 static const int RAPID_UPDATE_DELAY = 1500;
 static const int HOLD_UNTIL_UPDATED = 0;
 
-static const uint32_t COLOR_SHELL = 0x1C1C1E;
+static const uint32_t COLOR_SHELL = GuiTheme::kSurface1;
 static const uint32_t COLOR_TEXT = 0xFFFFFF;
 static const uint32_t COLOR_TRACK = 0x3A3A3C;
 static const uint32_t COLOR_BUSY = 0x007AFF;
@@ -39,6 +51,7 @@ static int auto_hide_delay = AUTO_HIDE_DELAY;
 
 static void slide_anim_cb(void* obj, int32_t value);
 static void slide_down_complete_cb(lv_anim_t* anim);
+static void flushPendingWarning();
 static void slide_up_complete_cb(lv_anim_t* anim);
 static void auto_hide_timer_cb(lv_timer_t* timer);
 static void notification_gesture_cb(lv_event_t* e);
@@ -54,6 +67,35 @@ static lv_obj_t* createSegment(lv_obj_t* parent) {
     lv_obj_clear_flag(segment, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(segment, LV_OBJ_FLAG_HIDDEN);
     return segment;
+}
+
+static void cancel_event_cb(lv_event_t*) {
+    Hub::SleepTimer::cancel();
+    hideNotification();
+}
+
+static void extend_event_cb(lv_event_t*) {
+    Hub::SleepTimer::extendByDefault();
+    hideNotification();
+}
+
+static void createActionRow() {
+    action_row = GuiTheme::flexRow(notification_container, ACTION_GAP);
+    lv_obj_set_width(action_row, SCR_WIDTH - 2 * CONTENT_PADDING);
+    lv_obj_set_height(action_row, ACTION_HEIGHT);
+    lv_obj_align(action_row, LV_ALIGN_BOTTOM_MID, 0, 0);
+
+    // Not "Dismiss": a swipe up already hides any banner, so the slot answers
+    // the question the warning actually raises -- stop it, or push it back.
+    lv_obj_t* cancel = GuiTheme::tintedButton(action_row, "Cancel", GuiTheme::kRed,
+                                              LV_OPA_20, GuiTheme::kRed, cancel_event_cb);
+    lv_obj_set_flex_grow(cancel, 1);
+    lv_obj_set_height(cancel, ACTION_HEIGHT);
+    lv_obj_t* extend = GuiTheme::tintedButton(action_row, "+15 min", GuiTheme::kSurface2,
+                                              LV_OPA_COVER, GuiTheme::kBlue, extend_event_cb);
+    lv_obj_set_flex_grow(extend, 1);
+    lv_obj_set_height(extend, ACTION_HEIGHT);
+    lv_obj_add_flag(action_row, LV_OBJ_FLAG_HIDDEN);
 }
 
 void init() {
@@ -111,6 +153,8 @@ void init() {
         power_segments[i] = createSegment(notification_container);
     }
 
+    createActionRow();
+
     lv_obj_add_event_cb(notification_container, notification_gesture_cb, LV_EVENT_GESTURE, nullptr);
     lv_obj_clear_flag(notification_container, LV_OBJ_FLAG_GESTURE_BUBBLE);
 
@@ -147,12 +191,14 @@ static void slide_down_complete_cb(lv_anim_t* anim) {
     animation_in_progress = false;
     notification_visible = true;
     armAutoHide();
+    flushPendingWarning();
 }
 
 static void slide_up_complete_cb(lv_anim_t* anim) {
     animation_in_progress = false;
     notification_visible = false;
     lv_obj_add_flag(notification_container, LV_OBJ_FLAG_HIDDEN);
+    flushPendingWarning();
 }
 
 static void auto_hide_timer_cb(lv_timer_t* timer) {
@@ -181,28 +227,42 @@ static void setHidden(lv_obj_t* obj, bool hidden) {
 static void showOnlyWidgetsFor(NotificationType type) {
     setHidden(volume_bar, type != NotificationType::VOLUME);
     setHidden(volume_level_label, type != NotificationType::VOLUME);
+    setHidden(action_row, type != NotificationType::SLEEP_WARNING);
     for (size_t i = 0; i < HubPowerSession::CAPACITY; i++) {
         setHidden(power_segments[i], true);
     }
     lv_label_set_recolor(notification_label, false);
 }
 
+static void alignContent() {
+    if (current_height == NOTIFICATION_HEIGHT_SINGLE) {
+        lv_obj_align(notification_label, LV_ALIGN_LEFT_MID, 0, 0);
+        return;
+    }
+    lv_obj_align(notification_label, LV_ALIGN_TOP_LEFT, 0, 8);
+    lv_obj_align(volume_level_label, LV_ALIGN_TOP_RIGHT, -8, 8);
+}
+
 static void layoutContainer() {
     lv_obj_set_size(notification_container, SCR_WIDTH, current_height);
     lv_obj_set_pos(notification_container, 0, statusbarTop + statusbarHeight - current_height);
+    alignContent();
+    lv_obj_invalidate(notification_container);
+}
 
-    if (current_height == NOTIFICATION_HEIGHT_SINGLE) {
-        lv_obj_align(notification_label, LV_ALIGN_LEFT_MID, 0, 0);
-    } else {
-        lv_obj_align(notification_label, LV_ALIGN_TOP_LEFT, 0, 8);
-        lv_obj_align(volume_level_label, LV_ALIGN_TOP_RIGHT, -8, 8);
-    }
-
+// Resize a banner that is already on screen. Notification kinds differ in
+// height, so replacing one in place has to resize it or the new content is laid
+// out against the old box.
+static void resizeShownContainer() {
+    lv_obj_set_size(notification_container, SCR_WIDTH, current_height);
+    lv_obj_set_pos(notification_container, 0, statusbarTop + statusbarHeight);
+    alignContent();
     lv_obj_invalidate(notification_container);
 }
 
 static void showNotification() {
     if (notification_visible && !animation_in_progress) {
+        resizeShownContainer();
         armAutoHide();
         return;
     }
@@ -408,6 +468,39 @@ void showPowerSession(const HubPowerSession& session) {
     showNotification();
 
     omote_log_d("Power session: %s\r\n", session.headline().c_str());
+}
+
+void showSleepWarning() {
+    if (animation_in_progress) {
+        // Retried when the slide settles: showNotification would drop it, and
+        // the caller has already spent its one-shot warning edge.
+        warning_pending = true;
+        return;
+    }
+
+    beginNotification(NotificationType::SLEEP_WARNING, NOTIFICATION_HEIGHT_ACTIONS,
+                      HOLD_UNTIL_UPDATED);
+
+    lv_label_set_text(notification_label, LV_SYMBOL_POWER "  Powering off in 1 min");
+    lv_obj_set_style_text_color(notification_label, lv_color_hex(COLOR_WARN), LV_PART_MAIN);
+
+    showNotification();
+
+    omote_log_d("Sleep timer warning shown\r\n");
+}
+
+static void flushPendingWarning() {
+    if (!warning_pending) {
+        return;
+    }
+    warning_pending = false;
+    // The timer may have been cancelled or extended during the slide. This
+    // banner never auto-hides, so an unchecked replay would leave a standing
+    // promise to power off that nothing is going to keep.
+    if (!Hub::SleepTimer::isWarning()) {
+        return;
+    }
+    showSleepWarning();
 }
 
 void showMessageNotification(const std::string& message) {

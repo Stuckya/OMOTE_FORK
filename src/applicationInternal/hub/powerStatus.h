@@ -14,6 +14,11 @@ namespace PowerStatus {
 void commandSent(const std::string& deviceId, omote_OmoteCommand command,
                  const omote_DeviceState* cached);
 
+// The power command has actually left for the hub. The session's deadline runs
+// from here: a queued send can wait seconds for the link on wake, and the hub
+// cannot start verifying until it arrives.
+void commandTransmitted(omote_OmoteCommand command);
+
 void observed(const omote_DeviceState& state);
 
 // A hub error shown by the session banner instead of the generic error

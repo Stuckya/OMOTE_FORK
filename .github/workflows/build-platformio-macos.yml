@@ -73,3 +73,6 @@ jobs:
 
       - name: Build PlatformIO env:macOS
         run: pio run -e macOS
+
+      - name: Build PlatformIO env:macOS_nohub
+        run: pio run -e macOS_nohub

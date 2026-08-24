@@ -71,6 +71,13 @@ void commandSent(const std::string& deviceId, omote_OmoteCommand command,
   startTicking();
 }
 
+void commandTransmitted(omote_OmoteCommand command) {
+  if (command != omote_OmoteCommand_POWER_ON && command != omote_OmoteCommand_POWER_OFF) {
+    return;
+  }
+  session.noteTransmitted(millis());
+}
+
 void observed(const omote_DeviceState& state) {
   if (!session.observe(state.device_id, state.is_on)) {
     return;

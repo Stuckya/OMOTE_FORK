@@ -17,6 +17,7 @@
 #include "hub/hubManager.h"
 #include "hub/protoCodec.h"
 #include "applicationInternal/hub/powerStatus.h"
+#include "applicationInternal/hub/sleepTimer.h"
 #include "applicationInternal/hub/hubDeviceNames.h"
 #include "applicationInternal/gui/guiStatusUpdate.h"
 #include <hubDeviceStateCache.h>
@@ -380,6 +381,22 @@ static void mergePushedDeviceState(const omote_DeviceState& state) {
   GuiNotification::showVolumeNotification(state.volume.level, state.volume.is_muted);
 }
 
+// The hub fires the sleep timer on its own, so the remote opens the aggregate
+// power session itself, over the devices it currently believes are on.
+static void openPowerSessionForDevicesThatAreOn() {
+  for (size_t i = 0; i < hubDeviceStateCache.size(); i++) {
+    const omote_DeviceState* device = hubDeviceStateCache.at(i);
+    if (device == nullptr || !device->is_on) {
+      continue;
+    }
+    Hub::PowerStatus::commandSent(device->device_id, omote_OmoteCommand_POWER_OFF, device);
+  }
+}
+
+void handleHubEventTransmitted(const omote_RemoteEvent& event) {
+  Hub::PowerStatus::commandTransmitted(event.command);
+}
+
 void handleHubCommandResult(const omote_CommandResult& result) {
   omote_log_d("Received CommandResult: kind=%d\r\n", result.kind);
 
@@ -440,6 +457,10 @@ void handleHubCommandResult(const omote_CommandResult& result) {
 
       for (pb_size_t i = 0; i < state_sync.devices_count; i++) {
         mergePushedDeviceState(state_sync.devices[i]);
+      }
+
+      if (state_sync.has_sleep_timer && Hub::SleepTimer::observed(state_sync.sleep_timer)) {
+        openPowerSessionForDevicesThatAreOn();
       }
 
       omote_log_d("State sync: has_time=%s, devices=%d\r\n",

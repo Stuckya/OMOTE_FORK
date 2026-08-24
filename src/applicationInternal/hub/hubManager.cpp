@@ -99,6 +99,17 @@ void HubManager::process() {
   syncState();
 }
 
+void HubManager::setEventTransmittedCallback(EventTransmittedCallback callback) {
+  eventTransmittedCallback = callback;
+}
+
+void HubManager::noteTransmitted(const omote_RemoteEvent& event) {
+  if (eventTransmittedCallback == nullptr) {
+    return;
+  }
+  eventTransmittedCallback(event);
+}
+
 bool HubManager::sendRemoteEvent(const omote_RemoteEvent& event) {
   if (!activeTransport) {
     omote_log_w("Cannot send message: no hub transport initialized\n");
@@ -230,6 +241,7 @@ bool HubManager::shouldQueueRemoteEvent() const {
 
 bool HubManager::sendImmediatelyOrQueueForRetry(const omote_RemoteEvent& event) {
   if (activeTransport->sendRemoteEvent(event)) {
+    noteTransmitted(event);
     return true;
   }
   return enqueueEvent(event);
@@ -260,6 +272,7 @@ void HubManager::flushQueue() {
       break;
     }
 
+    noteTransmitted(head->event);
     outboundQueue.pop();
     flushed++;
   }

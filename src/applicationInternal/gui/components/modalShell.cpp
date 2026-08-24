@@ -8,7 +8,8 @@ namespace {
 constexpr lv_coord_t kStatusBarH = 20;
 
 void add_header(lv_obj_t *overlay, const std::string &name,
-                const std::string &sub, lv_event_cb_t on_cancel) {
+                const std::string &sub, lv_event_cb_t on_cancel,
+                const lv_img_dsc_t *icon_src, uint32_t icon_color) {
   lv_obj_t *header = lv_obj_create(overlay);
   lv_obj_remove_style_all(header);
   lv_obj_set_width(header, lv_pct(100));
@@ -25,12 +26,20 @@ void add_header(lv_obj_t *overlay, const std::string &name,
   lv_obj_set_style_bg_color(icon, GuiTheme::color(GuiTheme::kSurface2),
                             LV_PART_MAIN);
   lv_obj_set_style_bg_opa(icon, LV_OPA_COVER, LV_PART_MAIN);
-  lv_obj_t *isym = lv_label_create(icon);
-  lv_label_set_text(isym, LV_SYMBOL_VIDEO);
-  lv_obj_set_style_text_font(isym, &lv_font_montserrat_12, LV_PART_MAIN);
-  lv_obj_set_style_text_color(isym, GuiTheme::color(GuiTheme::kWhite),
-                              LV_PART_MAIN);
-  lv_obj_center(isym);
+  if (icon_src != nullptr) {
+    lv_obj_t *img = lv_img_create(icon);
+    lv_img_set_src(img, icon_src);
+    lv_obj_set_style_img_recolor(img, GuiTheme::color(icon_color), LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(img, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_center(img);
+  } else {
+    lv_obj_t *isym = lv_label_create(icon);
+    lv_label_set_text(isym, LV_SYMBOL_VIDEO);
+    lv_obj_set_style_text_font(isym, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_color(isym, GuiTheme::color(GuiTheme::kWhite),
+                                LV_PART_MAIN);
+    lv_obj_center(isym);
+  }
 
   lv_obj_t *col = lv_obj_create(header);
   lv_obj_remove_style_all(col);
@@ -70,8 +79,11 @@ void add_header(lv_obj_t *overlay, const std::string &name,
 
 }  // namespace
 
-lv_obj_t *modalShell_create(const std::string &name, const std::string &sub,
-                            lv_event_cb_t on_cancel) {
+lv_obj_t *modalShell_createWithIcon(const std::string &name,
+                                    const std::string &sub,
+                                    lv_event_cb_t on_cancel,
+                                    const lv_img_dsc_t *icon,
+                                    uint32_t icon_color) {
   lv_obj_t *overlay = lv_obj_create(lv_layer_top());
   lv_obj_remove_style_all(overlay);
   lv_obj_set_size(overlay, SCR_WIDTH, SCR_HEIGHT - kStatusBarH);
@@ -85,6 +97,12 @@ lv_obj_t *modalShell_create(const std::string &name, const std::string &sub,
   lv_obj_set_style_pad_row(overlay, 10, LV_PART_MAIN);
   lv_obj_clear_flag(overlay, LV_OBJ_FLAG_SCROLLABLE);
 
-  add_header(overlay, name, sub, on_cancel);
+  add_header(overlay, name, sub, on_cancel, icon, icon_color);
   return overlay;
+}
+
+lv_obj_t *modalShell_create(const std::string &name, const std::string &sub,
+                            lv_event_cb_t on_cancel) {
+  return modalShell_createWithIcon(name, sub, on_cancel, nullptr,
+                                   GuiTheme::kWhite);
 }
