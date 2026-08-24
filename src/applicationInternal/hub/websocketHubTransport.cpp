@@ -28,8 +28,22 @@ bool WebSocketHubTransport::init() {
 
   omote_log_i("Initializing WebSocket transport to %s\n", hub_url);
   set_websocket_message_callback(&websocketMessageReceived_cb_proto);
-  init_websocket(hub_url);
+  hubUrl = hub_url;
+
+#if defined(ARDUINO)
+  // Deferred to process(): see startSocketOnceWifiIsUp.
+#else
+  startSocketOnceWifiIsUp();
+#endif
   return true;
+}
+
+void WebSocketHubTransport::startSocketOnceWifiIsUp() {
+  if (socketStarted || hubUrl == nullptr) {
+    return;
+  }
+  socketStarted = true;
+  init_websocket(hubUrl);
 }
 
 void WebSocketHubTransport::process() {
@@ -39,6 +53,7 @@ void WebSocketHubTransport::process() {
   if (!getIsWifiConnected()) {
     return;
   }
+  startSocketOnceWifiIsUp();
 #endif
 
   websocket_loop();
@@ -69,6 +84,7 @@ unsigned long WebSocketHubTransport::wakeQueueTtlMs() const {
 }
 
 void WebSocketHubTransport::shutdown() {
+  socketStarted = false;
   omote_log_i("WebSocket: Shutting down WebSocket transport\n");
   websocket_shutdown();
 }
