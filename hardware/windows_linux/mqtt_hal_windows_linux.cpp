@@ -35,6 +35,10 @@
 #include "lib/MQTT-C/include/mqtt.h"
 #include "lib/MQTT-C/include/posix_sockets.h"
 
+namespace {
+HalCallback<bool> wifiConnectedCallback;
+}
+
 int sockfd = -1;
 uint8_t sendmem1[4096];
 uint8_t recvmem1[4096];
@@ -43,9 +47,8 @@ std::string uniqueClientSuffix = "";
 std::string mqttProtoResponseTopic;
 int state = 0;
 
-HalCallback<bool> thisAnnounceWiFiconnected_cb;
-void set_announceWiFiconnected_cb_HAL(tAnnounceWiFiconnected_cb pAnnounceWiFiconnected_cb) {
-  thisAnnounceWiFiconnected_cb.set(pAnnounceWiFiconnected_cb);
+void set_announceWiFiconnected_cb_HAL(tAnnounceWiFiconnected_cb callback) {
+  wifiConnectedCallback.set(callback);
 }
 
 tAnnounceSubscribedTopics_cb thisAnnounceSubscribedTopics_cb = NULL;
@@ -177,7 +180,7 @@ void init_mqtt_HAL(void) {
 
   mqtt_subscribeTopics();
 
-  thisAnnounceWiFiconnected_cb(true);
+  wifiConnectedCallback(true);
 
 }
 

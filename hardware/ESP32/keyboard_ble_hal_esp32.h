@@ -1,5 +1,4 @@
 #pragma once
-#include "halCallback.h"
 
 #if (ENABLE_KEYBOARD_BLE == 1)
 
@@ -16,8 +15,7 @@ std::string keyboardBLE_getBonds_HAL();
 void keyboardBLE_deleteBonds_HAL();
 bool keyboardBLE_forceConnectionToAddress_HAL(std::string peerAddress);
 typedef void (*tAnnounceBLEmessage_cb)(std::string message);
-extern HalCallback<std::string> thisAnnounceBLEmessage_cb;
-void set_announceBLEmessage_cb_HAL(tAnnounceBLEmessage_cb pAnnounceBLEmessage_cb);
+void set_announceBLEmessage_cb_HAL(tAnnounceBLEmessage_cb callback);
 
 void init_keyboardBLE_HAL();
 bool keyboardBLE_isAdvertising_HAL();

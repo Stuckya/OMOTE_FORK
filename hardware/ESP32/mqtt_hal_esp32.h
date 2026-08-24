@@ -16,7 +16,7 @@ bool publishMQTTMessageProto_HAL(const char *topic, const uint8_t* payload, size
 void wifi_shutdown_HAL();
 
 typedef void (*tAnnounceWiFiconnected_cb)(bool connected);
-void set_announceWiFiconnected_cb_HAL(tAnnounceWiFiconnected_cb pAnnounceWiFiconnected_cb);
+void set_announceWiFiconnected_cb_HAL(tAnnounceWiFiconnected_cb callback);
 typedef void (*tAnnounceSubscribedTopics_cb)(std::string topic, std::string payload);
 void set_announceSubscribedTopics_cb_HAL(tAnnounceSubscribedTopics_cb pAnnounceSubscribedTopics_cb);
 typedef void (*tAnnounceMQTTMessageProto_cb)(const uint8_t* data, size_t len);

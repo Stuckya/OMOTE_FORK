@@ -8,6 +8,10 @@
 #include "keyboard_ble_hal_esp32.h"
 #include "halCallback.h"
 
+namespace {
+HalCallback<std::string> bleMessageCallback;
+}
+
 BleKeyboard bleKeyboard("OMOTE Keyboard", "CoretechR");
 
 void keyboardBLE_startAdvertisingForAll_HAL() {
@@ -50,15 +54,12 @@ bool keyboardBLE_forceConnectionToAddress_HAL(std::string peerAddress) {
   return bleKeyboard.forceConnectionToAddress(peerAddress);
 }
 
-HalCallback<std::string> thisAnnounceBLEmessage_cb;
-void set_announceBLEmessage_cb_HAL(tAnnounceBLEmessage_cb pAnnounceBLEmessage_cb) {
-  // this is the callback in the commandHandler that we call from here
-  thisAnnounceBLEmessage_cb.set(pAnnounceBLEmessage_cb);
+void set_announceBLEmessage_cb_HAL(tAnnounceBLEmessage_cb callback) {
+  bleMessageCallback.set(callback);
 }
 
 void keyboardBLE_BLEkeyboardMessage_cb(std::string message) {
-  // this callback is called from BLEKeyboard.cpp
-  thisAnnounceBLEmessage_cb(message);
+  bleMessageCallback(message);
 }
 
 void delete_bonds_if_NimBLE_version_changed() {
