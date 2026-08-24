@@ -2,6 +2,7 @@
 #include "WiFi.h"
 #include <PubSubClient.h>
 #include "mqtt_hal_esp32.h"
+#include "halCallback.h"
 #if (ENABLE_KEYBOARD_BLE == 1)
 #include "keyboard_ble_hal_esp32.h"
 #endif
@@ -13,9 +14,9 @@ PubSubClient mqttClient(espClient);
 bool isWifiConnected = false;
 std::string mqttProtoResponseTopic;
 
-tAnnounceWiFiconnected_cb thisAnnounceWiFiconnected_cb = NULL;
+HalCallback<bool> thisAnnounceWiFiconnected_cb;
 void set_announceWiFiconnected_cb_HAL(tAnnounceWiFiconnected_cb pAnnounceWiFiconnected_cb) {
-  thisAnnounceWiFiconnected_cb = pAnnounceWiFiconnected_cb;  
+  thisAnnounceWiFiconnected_cb.set(pAnnounceWiFiconnected_cb);  
 }
 
 tAnnounceSubscribedTopics_cb thisAnnounceSubscribedTopics_cb = NULL;

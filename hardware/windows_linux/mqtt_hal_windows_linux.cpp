@@ -1,5 +1,6 @@
 #include <string>
 #include "mqtt_hal_windows_linux.h"
+#include "halCallback.h"
 #include "secrets.h"
 
 #if (ENABLE_WIFI_AND_MQTT == 1)
@@ -42,9 +43,9 @@ std::string uniqueClientSuffix = "";
 std::string mqttProtoResponseTopic;
 int state = 0;
 
-tAnnounceWiFiconnected_cb thisAnnounceWiFiconnected_cb = NULL;
+HalCallback<bool> thisAnnounceWiFiconnected_cb;
 void set_announceWiFiconnected_cb_HAL(tAnnounceWiFiconnected_cb pAnnounceWiFiconnected_cb) {
-  thisAnnounceWiFiconnected_cb = pAnnounceWiFiconnected_cb;  
+  thisAnnounceWiFiconnected_cb.set(pAnnounceWiFiconnected_cb);  
 }
 
 tAnnounceSubscribedTopics_cb thisAnnounceSubscribedTopics_cb = NULL;
