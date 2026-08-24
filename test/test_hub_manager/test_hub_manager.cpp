@@ -5,6 +5,7 @@
 #include <pb_encode.h>
 
 #include "applicationInternal/hardware/arduinoLayer.h"
+#include <hubOutboundQueue.h>
 #include "applicationInternal/hub/hubManager.h"
 #include "applicationInternal/hub/syncRequest.h"
 #include "applicationInternal/hub/sceneSyncTargets.h"
@@ -417,8 +418,48 @@ void test_transmitted_callback_waits_for_the_queue_to_drain() {
   HubManager::getInstance().setEventTransmittedCallback(NULL);
 }
 
+// A review of the sleep timer argued that a rejected cancel/extend could leave
+// the banner dismissed while the timer stayed armed. These two pin why that
+// cannot happen: a send is only ever rejected inside the wake window, and the
+// wake window closes in the same process() call that delivers inbound messages.
+// A hub-pushed banner therefore proves the link was ready, which proves sends
+// are no longer rejectable.
+void test_a_send_is_rejected_only_while_the_wake_window_is_open() {
+  HubManager& manager = HubManager::getInstance();
+  FakeHubTransport* transport = initWithFakeTransport();
+
+  transport->ready = false;
+  for (uint8_t i = 0; i < HubOutboundQueue::CAPACITY; i++) {
+    TEST_ASSERT_TRUE(manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_DOWN)));
+  }
+
+  // The queue is full and the link has never been ready: the only rejection.
+  TEST_ASSERT_FALSE(manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_UP)));
+}
+
+void test_a_full_queue_still_accepts_sends_once_the_link_has_been_ready() {
+  HubManager& manager = HubManager::getInstance();
+  FakeHubTransport* transport = initWithFakeTransport();
+
+  // Anything inbound arrives via process(), which closes the wake window here.
+  transport->ready = true;
+  manager.process();
+
+  // Keep every send failing so the backlog builds past capacity.
+  transport->failedSendsRemaining = 255;
+  for (uint8_t i = 0; i < HubOutboundQueue::CAPACITY; i++) {
+    manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_DOWN));
+  }
+
+  // Full again, but out of the wake window the oldest is dropped and the new
+  // command is still accepted -- so a cancel or extend cannot be silently lost.
+  TEST_ASSERT_TRUE(manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_SLEEP_TIMER_CANCEL)));
+}
+
 int main() {
   UNITY_BEGIN();
+  RUN_TEST(test_a_send_is_rejected_only_while_the_wake_window_is_open);
+  RUN_TEST(test_a_full_queue_still_accepts_sends_once_the_link_has_been_ready);
   RUN_TEST(test_transmitted_callback_fires_on_an_immediate_send);
   RUN_TEST(test_transmitted_callback_waits_for_the_queue_to_drain);
   RUN_TEST(test_scene_sync_targets_map_to_priority_ordered_devices);
