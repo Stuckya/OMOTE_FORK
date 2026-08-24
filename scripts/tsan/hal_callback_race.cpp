@@ -1,13 +1,4 @@
-// Manual ThreadSanitizer check for HalCallback.
-//
-// Reproduces the production shape: one thread re-registers the callback --
-// init_mqtt() runs from setup() and again when the MQTT transport initialises,
-// re-registering the WiFi handler each time -- while another delivers events,
-// as the arduino_events task does once WiFi is up.
-//
-// Against a plain function pointer TSan reports a data race here. It is the only
-// tool that can show that deterministically, and it cannot run in CI because the
-// native test environment also builds under MinGW.
+// Exercises concurrent callback registration and delivery under ThreadSanitizer.
 #include "halCallback.h"
 
 #include <atomic>

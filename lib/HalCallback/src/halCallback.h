@@ -4,23 +4,7 @@
 #include <cstddef>
 #include <utility>
 
-// A HAL callback slot that is safe to invoke before anything registers, and
-// safe to re-register while events are being delivered.
-//
-// HAL events are not synchronised with application setup: WiFi association can
-// complete, or a radio frame can land, before the application has installed its
-// handler. Raw function pointers made that a null dereference, and the guard was
-// left to each call site to remember -- which it did not, consistently.
-//
-// Registration genuinely overlaps delivery: init_mqtt() runs once from setup()
-// and again when the MQTT transport initialises, and it re-registers the WiFi
-// handler each time while WiFi events are already arriving on their own task.
-// The target is therefore atomic, and invocation reads it exactly once so the
-// pointer it checked is the pointer it calls.
-//
-// Invoking an unset slot drops the event. These are notifications the
-// application has not yet asked to hear about, and a missed one is recoverable
-// where a panic is not.
+// Registration may overlap HAL event delivery; invoking an unset slot drops the event.
 template <typename... Args>
 class HalCallback {
 public:
