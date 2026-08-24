@@ -175,5 +175,4 @@ void websocket_shutdown();
 bool websocket_is_connected();
 void set_websocket_message_callback(void (*callback)(const uint8_t* data, size_t len));
 const char* get_websocketHubURL();
-unsigned long get_websocketReconnectIntervalMs();
 #endif

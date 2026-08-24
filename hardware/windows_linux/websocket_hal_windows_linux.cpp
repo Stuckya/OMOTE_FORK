@@ -152,6 +152,3 @@ const char* get_websocket_hub_url_HAL() {
     return WEBSOCKET_HUB_URL;
 }
 
-unsigned long get_websocket_reconnect_interval_ms_HAL() {
-    return RECONNECT_DELAY_MS;
-}

@@ -50,13 +50,14 @@ void WiFiEvent(WiFiEvent_t event){
   if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP || event == ARDUINO_EVENT_WIFI_STA_GOT_IP6) {
     isWifiConnected = true;
     thisAnnounceWiFiconnected_cb(true);
-    Serial.printf("WiFi connected, IP address: %s\r\n", WiFi.localIP().toString().c_str());
+    Serial.printf("[%lu ms] WiFi connected, IP address: %s\r\n", millis(),
+                  WiFi.localIP().toString().c_str());
 
   } else if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
     isWifiConnected = false;
     thisAnnounceWiFiconnected_cb(false);
     // automatically try to reconnect
-    Serial.printf("WiFi got disconnected. Will try to reconnect.\r\n");
+    Serial.printf("[%lu ms] WiFi got disconnected. Will try to reconnect.\r\n", millis());
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   } else {
@@ -72,6 +73,7 @@ void init_mqtt_HAL(void) {
   // Setup WiFi
   WiFi.setHostname("OMOTE"); //define hostname
   WiFi.onEvent(WiFiEvent);
+  Serial.printf("[%lu ms] WiFi association started\r\n", millis());
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   WiFi.setSleep(true);
 }

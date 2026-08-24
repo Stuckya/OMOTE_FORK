@@ -9,7 +9,10 @@ void websocketMessageReceived_cb_proto(const uint8_t* data, size_t len);
 
 #if (ENABLE_HUB_COMMUNICATION == 3)
 
-static const unsigned long WEBSOCKET_WAKE_QUEUE_GRACE_MS = 1000;
+// How long a command tapped during a wake waits for the link before it is
+// dropped. Sized from how long a wake takes to associate and connect, not from
+// the client's retry cadence -- the two are unrelated.
+static const unsigned long WEBSOCKET_WAKE_QUEUE_TTL_MS = 6000;
 
 extern void init_websocket(const char* hub_url);
 extern void websocket_loop();
@@ -28,8 +31,22 @@ bool WebSocketHubTransport::init() {
 
   omote_log_i("Initializing WebSocket transport to %s\n", hub_url);
   set_websocket_message_callback(&websocketMessageReceived_cb_proto);
-  init_websocket(hub_url);
+  hubUrl = hub_url;
+
+#if defined(ARDUINO)
+  // Deferred to process(): see startSocketOnceWifiIsUp.
+#else
+  startSocketOnceWifiIsUp();
+#endif
   return true;
+}
+
+void WebSocketHubTransport::startSocketOnceWifiIsUp() {
+  if (socketStarted || hubUrl == nullptr) {
+    return;
+  }
+  socketStarted = true;
+  init_websocket(hubUrl);
 }
 
 void WebSocketHubTransport::process() {
@@ -39,6 +56,7 @@ void WebSocketHubTransport::process() {
   if (!getIsWifiConnected()) {
     return;
   }
+  startSocketOnceWifiIsUp();
 #endif
 
   websocket_loop();
@@ -65,10 +83,11 @@ bool WebSocketHubTransport::isReady() {
 }
 
 unsigned long WebSocketHubTransport::wakeQueueTtlMs() const {
-  return get_websocketReconnectIntervalMs() + WEBSOCKET_WAKE_QUEUE_GRACE_MS;
+  return WEBSOCKET_WAKE_QUEUE_TTL_MS;
 }
 
 void WebSocketHubTransport::shutdown() {
+  socketStarted = false;
   omote_log_i("WebSocket: Shutting down WebSocket transport\n");
   websocket_shutdown();
 }

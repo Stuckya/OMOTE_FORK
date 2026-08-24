@@ -15,5 +15,14 @@ public:
   // WebSocket is effectively unbounded, so it can carry the full StateSync.
   size_t maxInboundCommandResultBytes() const override { return omote_CommandResult_size; }
   void shutdown() override;
+
+private:
+  void startSocketOnceWifiIsUp();
+
+  // The socket is opened after WiFi associates, not at init: a connect attempt
+  // made before there is a route fails, and the client then sits out its whole
+  // reconnect interval before trying again.
+  const char* hubUrl = nullptr;
+  bool socketStarted = false;
 };
 #endif
