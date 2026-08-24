@@ -4,6 +4,7 @@
 #include <sstream>
 #include "espnow_hal_esp32.h"
 #include <esp_wifi.h>
+#include "espNowRxQueue.h"
 #include "secrets.h"
 
 // Function to get MAC address for ESP32
@@ -17,22 +18,27 @@ std::string getMACaddress() {
 uint8_t hub_mac[6] = ESPNOW_HUB_MAC;
 esp_now_peer_info_t hub_peer;
 
-// Callbacks for ESP-NOW received data
-tAnnounceEspNowMessage_cb thisAnnounceEspNowMessage_cb = NULL;
-
-void onDataReceived(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
-  // Convert MAC to string for logging
-  char macStr[18];
-  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
-           mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
-  
-  if (thisAnnounceEspNowMessage_cb != NULL) {
-    thisAnnounceEspNowMessage_cb(data, data_len);
-  }
+namespace {
+tAnnounceEspNowMessage_cb espNowMessageCallback = nullptr;
+EspNowRxQueue rxQueue;
+uint32_t reportedDrops = 0;
 }
 
-void set_announceEspNowMessage_cb_HAL(tAnnounceEspNowMessage_cb pAnnounceEspNowMessage_cb) {
-  thisAnnounceEspNowMessage_cb = pAnnounceEspNowMessage_cb;
+// Driver-owned bytes expire on return; copy them for main-loop dispatch.
+void onDataReceived(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
+  (void)mac_addr;
+  if (data_len <= 0) {
+    return;
+  }
+  receiveEspNowFrame_HAL(data, (size_t)data_len);
+}
+
+void receiveEspNowFrame_HAL(const uint8_t* data, size_t len) {
+  rxQueue.push(data, len);
+}
+
+void set_announceEspNowMessage_cb_HAL(tAnnounceEspNowMessage_cb callback) {
+  espNowMessageCallback = callback;
 }
 
 void init_espnow_HAL(void) {
@@ -66,8 +72,24 @@ void init_espnow_HAL(void) {
 }
 
 void espnow_loop_HAL() {
-  // Nothing to do in the loop for ESP-NOW
-  // ESP-NOW callbacks are handled by the ESP32 in the background
+  const uint32_t drops = rxQueue.droppedFrames();
+  if (drops != reportedDrops) {
+    Serial.printf("ESP-NOW: dropped %u inbound frame(s)\r\n", (unsigned)(drops - reportedDrops));
+    reportedDrops = drops;
+  }
+
+  if (espNowMessageCallback == nullptr) {
+    return;
+  }
+
+  // Bounded per call so a saturated link cannot hold the main loop.
+  EspNowRxQueue::Frame frame;
+  for (size_t drained = 0; drained < EspNowRxQueue::CAPACITY; drained++) {
+    if (!rxQueue.pop(frame)) {
+      return;
+    }
+    espNowMessageCallback(frame.bytes, frame.length);
+  }
 }
 
 bool publishEspNowMessage_HAL(const uint8_t* data, size_t len) {
