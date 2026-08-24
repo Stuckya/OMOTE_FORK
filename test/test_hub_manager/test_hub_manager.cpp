@@ -5,6 +5,7 @@
 #include <pb_encode.h>
 
 #include "applicationInternal/hardware/arduinoLayer.h"
+#include <hubOutboundQueue.h>
 #include "applicationInternal/hub/hubManager.h"
 #include "applicationInternal/hub/syncRequest.h"
 #include "applicationInternal/hub/sceneSyncTargets.h"
@@ -417,8 +418,40 @@ void test_transmitted_callback_waits_for_the_queue_to_drain() {
   HubManager::getInstance().setEventTransmittedCallback(NULL);
 }
 
+void test_a_send_is_rejected_only_while_the_wake_window_is_open() {
+  HubManager& manager = HubManager::getInstance();
+  FakeHubTransport* transport = initWithFakeTransport();
+
+  transport->ready = false;
+  for (uint8_t i = 0; i < HubOutboundQueue::CAPACITY; i++) {
+    TEST_ASSERT_TRUE(manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_DOWN)));
+  }
+
+  TEST_ASSERT_FALSE(manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_UP)));
+}
+
+void test_a_full_queue_still_accepts_sends_once_the_link_has_been_ready() {
+  HubManager& manager = HubManager::getInstance();
+  FakeHubTransport* transport = initWithFakeTransport();
+
+  // Anything inbound arrives via process(), which closes the wake window here.
+  transport->ready = true;
+  manager.process();
+
+  // Force the initial direct send to fail so the queue fills.
+  transport->failedSendsRemaining = 255;
+  for (uint8_t i = 0; i < HubOutboundQueue::CAPACITY; i++) {
+    manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_DOWN));
+  }
+
+  // A full steady-state queue drops the oldest event and accepts the new one.
+  TEST_ASSERT_TRUE(manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_SLEEP_TIMER_CANCEL)));
+}
+
 int main() {
   UNITY_BEGIN();
+  RUN_TEST(test_a_send_is_rejected_only_while_the_wake_window_is_open);
+  RUN_TEST(test_a_full_queue_still_accepts_sends_once_the_link_has_been_ready);
   RUN_TEST(test_transmitted_callback_fires_on_an_immediate_send);
   RUN_TEST(test_transmitted_callback_waits_for_the_queue_to_drain);
   RUN_TEST(test_scene_sync_targets_map_to_priority_ordered_devices);
