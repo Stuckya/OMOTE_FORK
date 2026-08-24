@@ -2,20 +2,24 @@
 #include "WiFi.h"
 #include <PubSubClient.h>
 #include "mqtt_hal_esp32.h"
+#include "halCallback.h"
 #if (ENABLE_KEYBOARD_BLE == 1)
 #include "keyboard_ble_hal_esp32.h"
 #endif
 #include "secrets.h"
 
 #if (ENABLE_WIFI_AND_MQTT == 1)
+namespace {
+HalCallback<bool> wifiConnectedCallback;
+}
+
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 bool isWifiConnected = false;
 std::string mqttProtoResponseTopic;
 
-tAnnounceWiFiconnected_cb thisAnnounceWiFiconnected_cb = NULL;
-void set_announceWiFiconnected_cb_HAL(tAnnounceWiFiconnected_cb pAnnounceWiFiconnected_cb) {
-  thisAnnounceWiFiconnected_cb = pAnnounceWiFiconnected_cb;  
+void set_announceWiFiconnected_cb_HAL(tAnnounceWiFiconnected_cb callback) {
+  wifiConnectedCallback.set(callback);
 }
 
 tAnnounceSubscribedTopics_cb thisAnnounceSubscribedTopics_cb = NULL;
@@ -49,13 +53,13 @@ void WiFiEvent(WiFiEvent_t event){
   // Set status bar icon based on WiFi status
   if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP || event == ARDUINO_EVENT_WIFI_STA_GOT_IP6) {
     isWifiConnected = true;
-    thisAnnounceWiFiconnected_cb(true);
+    wifiConnectedCallback(true);
     Serial.printf("[%lu ms] WiFi connected, IP address: %s\r\n", millis(),
                   WiFi.localIP().toString().c_str());
 
   } else if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
     isWifiConnected = false;
-    thisAnnounceWiFiconnected_cb(false);
+    wifiConnectedCallback(false);
     // automatically try to reconnect
     Serial.printf("[%lu ms] WiFi got disconnected. Will try to reconnect.\r\n", millis());
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -64,7 +68,7 @@ void WiFiEvent(WiFiEvent_t event){
     // e.g. ARDUINO_EVENT_WIFI_STA_CONNECTED or many others
     // connected is not enough, will wait for IP
     isWifiConnected = false;
-    thisAnnounceWiFiconnected_cb(false);
+    wifiConnectedCallback(false);
 
   }
 }
