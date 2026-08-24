@@ -4,7 +4,7 @@
 #include <iostream>
 #include <cstring>
 
-#if !defined(WIN32)
+#if !defined(WIN32) && !defined(_WIN32)
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
@@ -17,7 +17,7 @@ std::string getMACaddress() {
 #if defined(__APPLE__)
   // For macOS simulator, return a mock MAC address
   return "AA:BB:CC:DD:EE:FF";
-#elif defined(WIN32)
+#elif defined(WIN32) || defined(_WIN32)
   // For Windows, return a mock MAC address
   return "AA:BB:CC:DD:EE:FF";
 #else
@@ -46,9 +46,7 @@ static tAnnounceEspNowMessage_cb espNowMessageCallback = nullptr;
 
 static EspNowRxQueue rxQueue;
 
-// The mock hub delivers from its own thread, so it feeds the queue rather than
-// the callback, matching how the ESP32 HAL keeps dispatch on the main loop.
-static void queueFromMockHub(const uint8_t* data, size_t len) {
+void receiveEspNowFrame_HAL(const uint8_t* data, size_t len) {
   rxQueue.push(data, len);
 }
 
@@ -59,7 +57,7 @@ void set_announceEspNowMessage_cb_HAL(tAnnounceEspNowMessage_cb callback) {
 
 void init_espnow_HAL() {
   std::cout << "ESP-NOW initialized (simulator with mock hub)" << std::endl;
-  startMockHubSimulator(&queueFromMockHub);
+  startMockHubSimulator(&receiveEspNowFrame_HAL);
 }
 
 void espnow_loop_HAL() {

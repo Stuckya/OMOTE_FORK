@@ -33,7 +33,11 @@ void onDataReceived(const uint8_t *mac_addr, const uint8_t *data, int data_len) 
   if (data_len <= 0) {
     return;
   }
-  rxQueue.push(data, (size_t)data_len);
+  receiveEspNowFrame_HAL(data, (size_t)data_len);
+}
+
+void receiveEspNowFrame_HAL(const uint8_t* data, size_t len) {
+  rxQueue.push(data, len);
 }
 
 void set_announceEspNowMessage_cb_HAL(tAnnounceEspNowMessage_cb pAnnounceEspNowMessage_cb) {
