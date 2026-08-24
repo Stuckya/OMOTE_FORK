@@ -41,10 +41,10 @@ std::string getMACaddress() {
 #endif
 }
 
-// Callback function pointer
-static tAnnounceEspNowMessage_cb espNowMessageCallback = nullptr;
-
-static EspNowRxQueue rxQueue;
+namespace {
+tAnnounceEspNowMessage_cb espNowMessageCallback = nullptr;
+EspNowRxQueue rxQueue;
+}
 
 void receiveEspNowFrame_HAL(const uint8_t* data, size_t len) {
   rxQueue.push(data, len);

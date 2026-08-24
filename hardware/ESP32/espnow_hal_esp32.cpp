@@ -18,11 +18,11 @@ std::string getMACaddress() {
 uint8_t hub_mac[6] = ESPNOW_HUB_MAC;
 esp_now_peer_info_t hub_peer;
 
-// Callbacks for ESP-NOW received data
-tAnnounceEspNowMessage_cb thisAnnounceEspNowMessage_cb = NULL;
-
-static EspNowRxQueue rxQueue;
-static uint32_t reportedDrops = 0;
+namespace {
+tAnnounceEspNowMessage_cb espNowMessageCallback = nullptr;
+EspNowRxQueue rxQueue;
+uint32_t reportedDrops = 0;
+}
 
 // Driver-owned bytes expire on return; copy them for main-loop dispatch.
 void onDataReceived(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
@@ -37,8 +37,8 @@ void receiveEspNowFrame_HAL(const uint8_t* data, size_t len) {
   rxQueue.push(data, len);
 }
 
-void set_announceEspNowMessage_cb_HAL(tAnnounceEspNowMessage_cb pAnnounceEspNowMessage_cb) {
-  thisAnnounceEspNowMessage_cb = pAnnounceEspNowMessage_cb;
+void set_announceEspNowMessage_cb_HAL(tAnnounceEspNowMessage_cb callback) {
+  espNowMessageCallback = callback;
 }
 
 void init_espnow_HAL(void) {
@@ -78,7 +78,7 @@ void espnow_loop_HAL() {
     reportedDrops = drops;
   }
 
-  if (thisAnnounceEspNowMessage_cb == NULL) {
+  if (espNowMessageCallback == nullptr) {
     return;
   }
 
@@ -88,7 +88,7 @@ void espnow_loop_HAL() {
     if (!rxQueue.pop(frame)) {
       return;
     }
-    thisAnnounceEspNowMessage_cb(frame.bytes, frame.length);
+    espNowMessageCallback(frame.bytes, frame.length);
   }
 }
 
