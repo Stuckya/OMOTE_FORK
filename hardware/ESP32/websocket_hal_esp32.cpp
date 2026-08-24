@@ -7,7 +7,10 @@
 WebSocketsClient webSocket;
 tAnnounceWebSocketMessage_cb thisAnnounceWebSocketMessage_cb = NULL;
 bool isConnected = false;
-const unsigned long WEBSOCKET_RECONNECT_INTERVAL_MS = 5000;
+// Also gates the FIRST attempt: the client initialises its last-failure stamp
+// to 0, so loop() refuses to connect until millis() exceeds this interval.
+// Anything larger simply postpones the initial connection by that much.
+const unsigned long WEBSOCKET_RECONNECT_INTERVAL_MS = 500;
 
 void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
   switch(type) {
@@ -130,6 +133,3 @@ const char* get_websocket_hub_url_HAL() {
   return WEBSOCKET_HUB_URL;
 }
 
-unsigned long get_websocket_reconnect_interval_ms_HAL() {
-  return WEBSOCKET_RECONNECT_INTERVAL_MS;
-}
