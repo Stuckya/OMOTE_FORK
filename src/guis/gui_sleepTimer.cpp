@@ -30,21 +30,11 @@ std::string subtitleForActiveScene() {
                        : "Powers off " + scene + " scene";
 }
 
-// "Powers off at 10:23 PM" -- empty until the hub has set the clock, which is
-// the same condition the status-bar clock shows as "--:--".
+// Empty until the hub has set the clock -- the same condition the status-bar
+// clock shows as "--:--".
 std::string offAtText(uint32_t remainingSeconds) {
-  if (!isDeviceClockSet()) {
-    return std::string();
-  }
-  const time_t now = time(nullptr);
-  const time_t offAt = now + (time_t)remainingSeconds - (time_t)get_secondsWestOfUtc();
-  struct tm parts;
-  if (gmtime_r(&offAt, &parts) == nullptr) {
-    return std::string();
-  }
-  char buffer[32];
-  strftime(buffer, sizeof(buffer), "Powers off at %I:%M %p", &parts);
-  return std::string(buffer);
+  const std::string at = formatLocalClockTime(time(nullptr) + (time_t)remainingSeconds);
+  return at.empty() ? std::string() : "Powers off at " + at;
 }
 
 void destroy_overlay() {
