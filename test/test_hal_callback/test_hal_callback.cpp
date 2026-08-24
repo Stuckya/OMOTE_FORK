@@ -26,7 +26,25 @@ static void recordPair(std::string first, std::string second) {
   lastSecond = second;
 }
 
+// Counts what invocation costs. HAL callbacks take std::string by value, so a
+// wrapper that copies on the way in doubles every allocation on the BLE path.
+struct CopyCounter {
+  static int copies;
+  static int moves;
+  CopyCounter() {}
+  CopyCounter(const CopyCounter&) { copies++; }
+  CopyCounter(CopyCounter&&) { moves++; }
+};
+int CopyCounter::copies = 0;
+int CopyCounter::moves = 0;
+
+static int countersReceived = 0;
+static void takeCounter(CopyCounter) { countersReceived++; }
+
 void setUp() {
+  CopyCounter::copies = 0;
+  CopyCounter::moves = 0;
+  countersReceived = 0;
   boolCalls = 0;
   lastBool = false;
   pairCalls = 0;
@@ -108,8 +126,33 @@ void test_multiple_arguments_are_forwarded_in_order() {
   TEST_ASSERT_EQUAL_STRING("payload", lastSecond.c_str());
 }
 
+// A temporary handed to a registered callback should reach the target without
+// being copied on the way through the wrapper.
+void test_invoking_with_a_temporary_does_not_copy_the_argument() {
+  HalCallback<CopyCounter> callback;
+  callback.set(&takeCounter);
+
+  callback(CopyCounter());
+
+  TEST_ASSERT_EQUAL_INT(1, countersReceived);
+  TEST_ASSERT_EQUAL_INT(0, CopyCounter::copies);
+}
+
+// An unset slot must cost nothing at all: no copy, no move, no allocation.
+void test_an_unset_callback_does_not_touch_its_argument() {
+  HalCallback<CopyCounter> callback;
+
+  callback(CopyCounter());
+
+  TEST_ASSERT_EQUAL_INT(0, countersReceived);
+  TEST_ASSERT_EQUAL_INT(0, CopyCounter::copies);
+  TEST_ASSERT_EQUAL_INT(0, CopyCounter::moves);
+}
+
 int main() {
   UNITY_BEGIN();
+  RUN_TEST(test_invoking_with_a_temporary_does_not_copy_the_argument);
+  RUN_TEST(test_an_unset_callback_does_not_touch_its_argument);
   RUN_TEST(test_invoking_an_unset_callback_is_a_no_op);
   RUN_TEST(test_a_registered_callback_receives_its_argument);
   RUN_TEST(test_registering_again_replaces_the_previous_target);

@@ -16,7 +16,7 @@ std::string mqttProtoResponseTopic;
 
 HalCallback<bool> thisAnnounceWiFiconnected_cb;
 void set_announceWiFiconnected_cb_HAL(tAnnounceWiFiconnected_cb pAnnounceWiFiconnected_cb) {
-  thisAnnounceWiFiconnected_cb.set(pAnnounceWiFiconnected_cb);  
+  thisAnnounceWiFiconnected_cb.set(pAnnounceWiFiconnected_cb);
 }
 
 tAnnounceSubscribedTopics_cb thisAnnounceSubscribedTopics_cb = NULL;

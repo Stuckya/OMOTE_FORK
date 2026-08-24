@@ -24,7 +24,7 @@ bool keyboardBLE_forceConnectionToAddress_HAL(std::string peerAddress) {return t
 HalCallback<std::string> thisAnnounceBLEmessage_cb;
 void set_announceBLEmessage_cb_HAL(tAnnounceBLEmessage_cb pAnnounceBLEmessage_cb) {
   // this is the callback in the commandHandler that we call from here
-  thisAnnounceBLEmessage_cb.set(pAnnounceBLEmessage_cb);  
+  thisAnnounceBLEmessage_cb.set(pAnnounceBLEmessage_cb);
 };
 
 void init_keyboardBLE_HAL() {};
