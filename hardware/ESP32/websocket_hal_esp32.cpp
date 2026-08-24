@@ -12,12 +12,12 @@ const unsigned long WEBSOCKET_RECONNECT_INTERVAL_MS = 5000;
 void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
   switch(type) {
     case WStype_DISCONNECTED:
-      Serial.println("WebSocket Disconnected");
+      Serial.printf("[%lu ms] WebSocket Disconnected\n", millis());
       isConnected = false;
       break;
       
     case WStype_CONNECTED:
-      Serial.println("WebSocket Connected");
+      Serial.printf("[%lu ms] WebSocket Connected\n", millis());
       isConnected = true;
       break;
       
@@ -28,7 +28,7 @@ void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       break;
       
     case WStype_ERROR:
-      Serial.println("WebSocket Error");
+      Serial.printf("[%lu ms] WebSocket Error\n", millis());
       break;
       
     default:
@@ -76,6 +76,9 @@ void init_websocket_HAL(const char* hub_url) {
   
   Serial.printf("Connecting to host: %s, port: %d, path: %s\n", host.c_str(), port, path.c_str());
   
+  // Timestamped: the first attempt runs before WiFi has associated, and a
+  // failed one costs a full WEBSOCKET_RECONNECT_INTERVAL_MS before the retry.
+  Serial.printf("[%lu ms] WebSocket first connect attempt\n", millis());
   webSocket.begin(host, port, path);
   webSocket.onEvent(onWebSocketEvent);
   
@@ -84,7 +87,8 @@ void init_websocket_HAL(const char* hub_url) {
   // Enable heartbeat: ping every 5s, expect pong within 1s, disconnect after 2 missed
   webSocket.enableHeartbeat(5000, 1000, 2);
   
-  Serial.println("WebSocket Client initialized");
+  Serial.printf("[%lu ms] WebSocket Client initialized (reconnect interval %lu ms)\n",
+                millis(), WEBSOCKET_RECONNECT_INTERVAL_MS);
 }
 
 void websocket_loop_HAL() {
