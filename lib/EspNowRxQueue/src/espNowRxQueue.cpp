@@ -17,9 +17,7 @@ bool EspNowRxQueue::push(const uint8_t* data, size_t length) {
   const size_t writeAt = head.load(std::memory_order_relaxed);
   const size_t next = advance(writeAt);
   if (next == tail.load(std::memory_order_acquire)) {
-    // Full. Drop the newest rather than reclaiming the oldest: tail belongs to
-    // the consumer, and moving it from here would break the single-writer rule
-    // the lock-free handoff depends on.
+    // Only the consumer may advance tail, so a full queue drops the newest frame.
     dropped.fetch_add(1, std::memory_order_relaxed);
     return false;
   }
@@ -41,8 +39,7 @@ bool EspNowRxQueue::pop(Frame& out) {
   out.length = frames[readAt].length;
   memcpy(out.bytes, frames[readAt].bytes, out.length);
 
-  // Releases the slot only after the copy, so the producer cannot overwrite a
-  // frame that is still being read.
+  // Prevent producer reuse until the frame copy completes.
   tail.store(advance(readAt), std::memory_order_release);
   return true;
 }

@@ -4,22 +4,13 @@
 #include <hubPowerSession.h>
 #include <hubSleepTimer.h>
 
-// millis() is an unsigned long that wraps roughly every 49 days. Every deadline
-// in the firmware is safe only because it is written as (now - start) >= span,
-// which stays correct across the wrap. Rewritten as (start + span) <= now it
-// would be wrong for 49 days and then wrong once, silently. These tests exist to
-// make that rewrite fail here rather than in someone's living room.
-// A start point 1 s before millis() wraps, so any elapsed time over 1 s lands on
-// a clock reading *smaller* than the start.
+// Start near wrap; unsigned subtraction keeps elapsed-time checks valid across it.
 static const unsigned long JUST_BEFORE_WRAP = (unsigned long)-1 - 1000UL;
 
-// The clock reading after `elapsed` ms of real time. Unsigned overflow is
-// defined, and that is exactly the behaviour under test.
 static unsigned long after(unsigned long elapsed) {
   return JUST_BEFORE_WRAP + elapsed;
 }
 
-// Guards the tests against quietly ceasing to exercise the wrap.
 static void assertWrapped(unsigned long now) {
   TEST_ASSERT_TRUE_MESSAGE(now < JUST_BEFORE_WRAP, "clock did not actually wrap");
 }
@@ -46,14 +37,11 @@ void test_a_queued_event_does_not_expire_early_across_the_wrap() {
   const HubOutboundQueue::QueuedEvent* queued = queue.peek();
   TEST_ASSERT_NOT_NULL(queued);
 
-  // 3 s later in real time, but a smaller number than when it was queued.
   assertWrapped(after(3000));
   TEST_ASSERT_FALSE(queue.isExpired(*queued, after(3000)));
 }
 
-// The case that separates the two forms. Here `now` has NOT wrapped yet, but
-// start + ttl has -- so the naive form compares a wrapped sum against an
-// unwrapped clock and reports everything expired the instant it is queued.
+// Distinguishes elapsed subtraction from an overflowing absolute deadline.
 void test_a_queued_event_is_not_expired_when_only_its_deadline_would_overflow() {
   HubOutboundQueue queue;
   omote_RemoteEvent event = omote_RemoteEvent_init_zero;
@@ -103,7 +91,6 @@ void test_a_power_session_does_not_time_out_early_across_the_wrap() {
   session.expect("LG_TV", "TV", true, false, JUST_BEFORE_WRAP);
   session.noteTransmitted(JUST_BEFORE_WRAP);
 
-  // Well inside the budget in real time, despite the smaller number.
   assertWrapped(after(3000));
   TEST_ASSERT_EQUAL(HubPowerSession::Phase::IN_PROGRESS, session.tick(after(3000)));
 }
@@ -122,7 +109,6 @@ void test_the_sleep_timer_counts_down_correctly_across_the_wrap() {
   HubSleepTimer timer;
   timer.observe(HubSleepTimer::Stage::ARMED, 600, JUST_BEFORE_WRAP);
 
-  // 10 s of real time elapsed, straddling the wrap.
   assertWrapped(after(10000));
   TEST_ASSERT_EQUAL_UINT32(590, timer.remainingSeconds(after(10000)));
 }

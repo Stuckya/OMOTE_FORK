@@ -24,10 +24,7 @@ tAnnounceEspNowMessage_cb thisAnnounceEspNowMessage_cb = NULL;
 static EspNowRxQueue rxQueue;
 static uint32_t reportedDrops = 0;
 
-// Invoked by the ESP-NOW driver on the WiFi task, and the frame buffer is only
-// valid until it returns. Copy the bytes into the queue and dispatch them from
-// espnow_loop_HAL() instead: this callback's consumers end up in LVGL, which
-// corrupts its allocator when entered from anywhere but the main loop.
+// Driver-owned bytes expire on return; copy them for main-loop dispatch.
 void onDataReceived(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
   (void)mac_addr;
   if (data_len <= 0) {

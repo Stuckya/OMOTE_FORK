@@ -5,8 +5,6 @@
 
 static const size_t MAX_HELD = EspNowRxQueue::CAPACITY - 1;
 
-// Distinct, length-varying payload per marker so ordering and byte fidelity
-// both fail loudly if the ring mixes slots up.
 static size_t makeFrame(uint8_t marker, uint8_t* out) {
   const size_t length = 1 + (marker % 16);
   for (size_t i = 0; i < length; i++) {
@@ -81,7 +79,6 @@ void test_full_queue_drops_the_newest_and_keeps_the_backlog() {
   TEST_ASSERT_EQUAL_UINT(MAX_HELD, queue.count());
   TEST_ASSERT_EQUAL_UINT32(1, queue.droppedFrames());
 
-  // The already-queued frames must survive the drop unchanged.
   for (uint8_t i = 0; i < MAX_HELD; i++) {
     expectFrame(queue, i);
   }
@@ -110,7 +107,6 @@ void test_draining_frees_slots_for_later_frames() {
 
 void test_indices_wrap_without_losing_order() {
   EspNowRxQueue queue;
-  // Several laps around the ring, one in flight at a time.
   for (uint8_t i = 0; i < (uint8_t)(EspNowRxQueue::CAPACITY * 3); i++) {
     pushFrame(queue, i);
     expectFrame(queue, i);

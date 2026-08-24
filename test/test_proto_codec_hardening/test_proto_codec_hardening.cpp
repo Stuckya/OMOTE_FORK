@@ -21,8 +21,6 @@ void setUp() {
 void tearDown() {
 }
 
-// The documented contract: on a malformed frame the caller's struct is left
-// untouched, so a dropped frame can never be mistaken for a device report.
 void test_a_failed_decode_leaves_the_callers_result_untouched() {
   omote_CommandResult result = omote_CommandResult_init_zero;
   result.kind = omote_ResponseKind_POWER;
@@ -37,19 +35,15 @@ void test_a_failed_decode_leaves_the_callers_result_untouched() {
   TEST_ASSERT_TRUE(result.data.power.is_on);
 }
 
-void test_an_empty_frame_is_refused_without_touching_the_result() {
+void test_an_empty_frame_clears_stale_result_state() {
   omote_CommandResult result = omote_CommandResult_init_zero;
   result.kind = omote_ResponseKind_VOLUME;
 
   const uint8_t empty[1] = {0};
-  // A zero-length buffer is a valid empty message, not a malformed one; what
-  // matters is that it cannot smuggle a stale kind through as fresh state.
-  ProtoCodec::decodeCommandResult(empty, 0, result);
-  TEST_ASSERT_TRUE(result.kind == omote_ResponseKind_VOLUME ||
-                   result.kind == omote_ResponseKind_RESPONSE_KIND_UNSPECIFIED);
+  TEST_ASSERT_TRUE(ProtoCodec::decodeCommandResult(empty, 0, result));
+  TEST_ASSERT_EQUAL(omote_ResponseKind_RESPONSE_KIND_UNSPECIFIED, result.kind);
 }
 
-// Every truncation of a good frame is a frame a flaky radio can produce.
 void test_no_truncation_of_a_valid_frame_crashes_the_decoder() {
   const std::vector<uint8_t> valid = encodeValidEvent();
   TEST_ASSERT_TRUE(valid.size() > 0);
@@ -61,7 +55,6 @@ void test_no_truncation_of_a_valid_frame_crashes_the_decoder() {
   TEST_ASSERT_TRUE(true);
 }
 
-// Single-bit corruption is the classic radio failure; none of it may crash.
 void test_no_single_bit_flip_crashes_the_decoder() {
   const std::vector<uint8_t> valid = encodeValidEvent();
 
@@ -76,7 +69,6 @@ void test_no_single_bit_flip_crashes_the_decoder() {
   TEST_ASSERT_TRUE(true);
 }
 
-// An undersized output buffer must fail cleanly rather than run past its end.
 void test_encoding_into_a_short_buffer_never_writes_past_it() {
   omote_RemoteEvent event = ProtoCodec::createRemoteEvent(
       "DENON_AVR", omote_OmoteCommand_VOL_PLUS, omote_OmoteCommandType_SHORT, "omote-1");
@@ -93,8 +85,6 @@ void test_encoding_into_a_short_buffer_never_writes_past_it() {
   }
 }
 
-// nanopb gives these fields a fixed capacity; a longer value must be cut to fit
-// rather than overrun the struct.
 void test_an_overlong_device_name_is_truncated_to_the_field() {
   const std::string huge(400, 'D');
   omote_RemoteEvent event = ProtoCodec::createRemoteEvent(huge, omote_OmoteCommand_POWER_ON);
@@ -121,8 +111,6 @@ void test_an_overlong_data_payload_is_clamped_to_the_field() {
   TEST_ASSERT_TRUE(event.data.size <= sizeof(event.data.bytes));
 }
 
-// A truncated field must still leave a NUL-terminated string, or every later
-// strlen walks off the end.
 void test_a_truncated_device_name_still_round_trips_as_a_string() {
   const std::string huge(400, 'X');
   omote_RemoteEvent event = ProtoCodec::createRemoteEvent(huge, omote_OmoteCommand_POWER_ON);
@@ -143,7 +131,7 @@ void test_an_unknown_command_string_never_maps_to_a_real_command() {
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_a_failed_decode_leaves_the_callers_result_untouched);
-  RUN_TEST(test_an_empty_frame_is_refused_without_touching_the_result);
+  RUN_TEST(test_an_empty_frame_clears_stale_result_state);
   RUN_TEST(test_no_truncation_of_a_valid_frame_crashes_the_decoder);
   RUN_TEST(test_no_single_bit_flip_crashes_the_decoder);
   RUN_TEST(test_encoding_into_a_short_buffer_never_writes_past_it);
