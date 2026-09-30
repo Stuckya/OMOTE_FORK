@@ -79,7 +79,14 @@ void init_mqtt_HAL(void) {
   WiFi.onEvent(WiFiEvent);
   Serial.printf("[%lu ms] WiFi association started\r\n", millis());
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  #if (ENABLE_BLUETOOTH == 1)
+  // Wi-Fi and BLE need power saving on to share the radio.
   WiFi.setSleep(true);
+  #else
+  // Power saving delays hub replies and heartbeat pongs.
+  // Leaving it off only drains battery while awake. Deep sleep turns the radio off.
+  WiFi.setSleep(false);
+  #endif
 }
 
 std::string subscribeTopicOMOTEtest = "OMOTE/test";
