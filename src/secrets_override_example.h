@@ -14,7 +14,8 @@
 #define MQTT_SERVER                "IPAddressOfYourBroker"     // override here
 
 // Optional. Pins one access point when several broadcast the same SSID.
-// Use the BSSID of its 2.4 GHz radio. If that access point does not answer, the remote joins the strongest one.
+// If that access point does not answer, the remote joins the strongest one.
+// Copy the BSSID from the remote's "WiFi connected" log line. The UniFi app can show a different BSSID for the same radio.
 // #define WIFI_BSSID   {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 // #define WIFI_CHANNEL 11
 
