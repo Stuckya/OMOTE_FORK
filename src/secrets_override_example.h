@@ -13,6 +13,12 @@
 #define WIFI_PASSWORD              "YourWifiPassword"          // override here
 #define MQTT_SERVER                "IPAddressOfYourBroker"     // override here
 
+// Optional. Pins one access point when several broadcast the same SSID.
+// If that access point does not answer, the remote joins the strongest one.
+// Copy the BSSID from the remote's "WiFi connected" log line. The UniFi app can show a different BSSID for the same radio.
+// #define WIFI_BSSID   {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+// #define WIFI_CHANNEL 11
+
 // MAC address of the hub
 // For unicast communication, use the hub's actual MAC address
 #define ESPNOW_HUB_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}

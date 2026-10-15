@@ -11,6 +11,47 @@
 #if (ENABLE_WIFI_AND_MQTT == 1)
 namespace {
 HalCallback<bool> wifiConnectedCallback;
+
+#if defined(WIFI_BSSID)
+#if !defined(WIFI_CHANNEL)
+#define WIFI_CHANNEL 0
+#endif
+const uint8_t PINNED_BSSID[] = WIFI_BSSID;
+
+enum class AccessPointChoice { PinnedJoining, PinnedJoined, Strongest };
+// Deep sleep resets this, so each wake tries the pinned access point again.
+AccessPointChoice accessPointChoice = AccessPointChoice::PinnedJoining;
+#endif
+
+void notePinnedAssociation() {
+  #if defined(WIFI_BSSID)
+  if (accessPointChoice == AccessPointChoice::PinnedJoining) {
+    accessPointChoice = AccessPointChoice::PinnedJoined;
+  }
+  #endif
+}
+
+void fallBackIfPinnedJoinFailed() {
+  #if defined(WIFI_BSSID)
+  if (accessPointChoice == AccessPointChoice::PinnedJoining) {
+    accessPointChoice = AccessPointChoice::Strongest;
+    Serial.printf("[%lu ms] Pinned access point unreachable, joining the strongest\r\n", millis());
+  }
+  #endif
+}
+
+void joinWifi() {
+  #if defined(WIFI_BSSID)
+  if (accessPointChoice != AccessPointChoice::Strongest) {
+    accessPointChoice = AccessPointChoice::PinnedJoining;
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD, WIFI_CHANNEL, PINNED_BSSID);
+    return;
+  }
+  // The default fast scan joins the first access point that answers, not the strongest.
+  WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  #endif
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+}
 }
 
 WiFiClient espClient;
@@ -54,17 +95,20 @@ void WiFiEvent(WiFiEvent_t event){
   if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP || event == ARDUINO_EVENT_WIFI_STA_GOT_IP6) {
     isWifiConnected = true;
     wifiConnectedCallback(true);
-    Serial.printf("[%lu ms] WiFi connected, IP address: %s\r\n", millis(),
-                  WiFi.localIP().toString().c_str());
+    Serial.printf("[%lu ms] WiFi connected, IP address: %s, BSSID: %s, RSSI: %d dBm\r\n", millis(),
+                  WiFi.localIP().toString().c_str(), WiFi.BSSIDstr().c_str(), WiFi.RSSI());
 
   } else if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
     isWifiConnected = false;
     wifiConnectedCallback(false);
-    // automatically try to reconnect
     Serial.printf("[%lu ms] WiFi got disconnected. Will try to reconnect.\r\n", millis());
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    fallBackIfPinnedJoinFailed();
+    joinWifi();
 
   } else {
+    if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+      notePinnedAssociation();
+    }
     // e.g. ARDUINO_EVENT_WIFI_STA_CONNECTED or many others
     // connected is not enough, will wait for IP
     isWifiConnected = false;
@@ -78,8 +122,15 @@ void init_mqtt_HAL(void) {
   WiFi.setHostname("OMOTE"); //define hostname
   WiFi.onEvent(WiFiEvent);
   Serial.printf("[%lu ms] WiFi association started\r\n", millis());
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  joinWifi();
+  #if (ENABLE_BLUETOOTH == 1)
+  // Wi-Fi and BLE need power saving on to share the radio.
   WiFi.setSleep(true);
+  #else
+  // Power saving delays hub replies and heartbeat pongs.
+  // Leaving it off only drains battery while awake. Deep sleep turns the radio off.
+  WiFi.setSleep(false);
+  #endif
 }
 
 std::string subscribeTopicOMOTEtest = "OMOTE/test";
