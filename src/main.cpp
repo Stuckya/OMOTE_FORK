@@ -42,7 +42,7 @@
 #include "guis/gui_pairing.h"
 #include "guis/gui_BLEpairing.h"
 // #include "devices/AVreceiver/device_yamahaAmp/gui_yamahaAmp.h"
-// #include "devices/mediaPlayer/device_appleTV/gui_appleTV.h"
+#include "devices/mediaPlayer/device_appleTV/gui_appleTV.h"
 // #include "devices/misc/device_smarthome/gui_smarthome.h"
 // #include "devices/misc/device_airconditioner/gui_airconditioner.h"
 #include "applicationInternal/keys.h"
@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
   register_gui_sceneSelection();
   register_gui_irReceiver();
   register_gui_settings();
-  //  register_gui_appleTV();
+  register_gui_appleTV();
   register_gui_numpad();
   #if (ENABLE_KEYBOARD_BLE == 1)
   register_gui_blepairing();

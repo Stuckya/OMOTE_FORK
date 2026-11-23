@@ -5,6 +5,7 @@
 #include "applicationInternal/hardware/hardwarePresenter.h"
 #include "applicationInternal/commandHandler.h"
 #include "devices/mediaPlayer/device_appleTV/device_appleTV.h"
+#include "devices/mediaPlayer/device_appleTV/gui_appleTV.h"
 #include "devices/AVreceiver/device_denonAvr/device_denonAvr.h"
 #include "devices/TV/device_lgTV/device_lgTV.h"
 #include "devices/misc/device_hub_helper.h"
@@ -52,7 +53,7 @@ void scene_end_sequence_appleTV(void) {
 }
 
 std::string scene_name_appleTV = "Apple TV";
-t_gui_list scene_appleTV_gui_list = {tabName_numpad};
+t_gui_list scene_appleTV_gui_list = {tabName_appleTV, tabName_numpad};
 
 void register_scene_appleTV(void) {
   register_command(&SCENE_APPLETV,       makeCommandData(SCENE, {scene_name_appleTV}));
