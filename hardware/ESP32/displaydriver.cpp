@@ -57,7 +57,13 @@ void setup_tft(void) {
   #endif
 
   // https://github.com/CoretechR/OMOTE/issues/70#issuecomment-2016763291
-  delay(100); // Wait for the LCD driver to power on
+  // Wait for the LCD driver to power on. LovyanGFX waits a further 72 ms itself before its
+  // first command, Arduino_GFX sends one at once.
+  #if (DISPLAY_DRIVER == 0)
+  delay(5);
+  #else
+  delay(100);
+  #endif
 }
 
 // -----------------------
