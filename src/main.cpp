@@ -63,6 +63,9 @@
 #include "secrets.h"
 
 #if defined(ARDUINO)
+// Handling one hub state sync reply takes about 8.1 kB of stack. The Arduino default of 8192 left 60 bytes.
+SET_LOOP_TASK_STACK_SIZE(16 * 1024);
+
 // in case of Arduino we have a setup() and a loop()
 void setup() {
 
