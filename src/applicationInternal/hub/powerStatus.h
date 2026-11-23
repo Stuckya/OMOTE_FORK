@@ -8,6 +8,11 @@
 namespace Hub {
 namespace PowerStatus {
 
+// Only these commands open a session, and with it the banner.
+inline bool opensSession(omote_OmoteCommand command) {
+  return command == omote_OmoteCommand_POWER_ON || command == omote_OmoteCommand_POWER_OFF;
+}
+
 // A command just left for the hub. `cached` is the remote's last snapshot of
 // the device (or null); a device already in the target state is confirmed
 // up front, since the hub publishes changes only and will never push it.
