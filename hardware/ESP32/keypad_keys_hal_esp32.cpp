@@ -102,9 +102,10 @@ void init_keys_HAL(void) {
   keypad.writeRegister(TCA8418_REG_GPI_EM_1, 0b00111111);
   keypad.writeRegister(TCA8418_REG_GPI_EM_2, 0b00011111); // disable interrupt for COL5 (USB_3V3)
   
-  ledcSetup(LEDC_CHANNEL_6, 5000, 8);
-  ledcAttachPin(KBD_BL_GPIO, LEDC_CHANNEL_6);
-  ledcWrite(LEDC_CHANNEL_6, 0);
+  // The S3's PWM timers share one clock, and setup_tft runs the backlight timer on APB.
+  ledcSetClockSource(LEDC_USE_APB_CLK);
+  ledcAttachChannel(KBD_BL_GPIO, 5000, 8, LEDC_CHANNEL_6);
+  ledcWrite(KBD_BL_GPIO, 0);
 
   #else
   // Button Pin Definition
@@ -236,18 +237,24 @@ void update_keyboardBrightness_HAL(void) {
   if (millis() < fadeInTimer + keyboardBrightness) {
     // after boot or wakeup, fade in keyboard brightness
     // fade in lasts for <keyboardBrightness> ms
-    ledcWrite(LEDC_CHANNEL_6, millis() - fadeInTimer);
+    ledcWrite(KBD_BL_GPIO, millis() - fadeInTimer);
   }
   else {
     // normal mode, set full keyboardBrightness    
     // turn off PWM if keyboard is at full brightness
     if(keyboardBrightness < 255){
-      ledcWrite(LEDC_CHANNEL_6, keyboardBrightness);
+      ledcWrite(KBD_BL_GPIO, keyboardBrightness);
     }
     else{
       ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_6, 255);
     }
   }
+}
+
+// Deep sleep holds this pin at the level it has, and a running PWM leaves that to chance.
+void keyboardBacklight_shutdown_HAL(void) {
+  pinMode(KBD_BL_GPIO, OUTPUT);
+  digitalWrite(KBD_BL_GPIO, LOW);
 }
 
 uint8_t get_keyboardBrightness_HAL() {

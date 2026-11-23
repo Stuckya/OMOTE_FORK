@@ -164,27 +164,28 @@ void enterSleep(){
 
 
   // Prepare IO states
-  digitalWrite(LCD_DC_GPIO, LOW); // LCD control signals off
-  digitalWrite(LCD_CS_GPIO, LOW);
+  set_lcd_pin_level(LCD_DC_GPIO, LOW); // LCD control signals off
+  set_lcd_pin_level(LCD_CS_GPIO, LOW);
   #if(OMOTE_HARDWARE_REV >= 5)
-    digitalWrite(LCD_WR_GPIO, LOW);
-    digitalWrite(LCD_RD_GPIO, LOW);
-    digitalWrite(LCD_D0_GPIO, LOW);
-    digitalWrite(LCD_D1_GPIO, LOW);
-    digitalWrite(LCD_D2_GPIO, LOW);
-    digitalWrite(LCD_D3_GPIO, LOW);
-    digitalWrite(LCD_D4_GPIO, LOW);
-    digitalWrite(LCD_D5_GPIO, LOW);
-    digitalWrite(LCD_D6_GPIO, LOW);
-    digitalWrite(LCD_D7_GPIO, LOW);
+    set_lcd_pin_level(LCD_WR_GPIO, LOW);
+    set_lcd_pin_level(LCD_RD_GPIO, LOW);
+    set_lcd_pin_level(LCD_D0_GPIO, LOW);
+    set_lcd_pin_level(LCD_D1_GPIO, LOW);
+    set_lcd_pin_level(LCD_D2_GPIO, LOW);
+    set_lcd_pin_level(LCD_D3_GPIO, LOW);
+    set_lcd_pin_level(LCD_D4_GPIO, LOW);
+    set_lcd_pin_level(LCD_D5_GPIO, LOW);
+    set_lcd_pin_level(LCD_D6_GPIO, LOW);
+    set_lcd_pin_level(LCD_D7_GPIO, LOW);
   #else
-    digitalWrite(LCD_MOSI_GPIO, LOW);
-    digitalWrite(LCD_SCK_GPIO, LOW);
+    set_lcd_pin_level(LCD_MOSI_GPIO, LOW);
+    set_lcd_pin_level(LCD_SCK_GPIO, LOW);
   #endif
   digitalWrite(LCD_EN_GPIO, HIGH); // LCD logic off
   digitalWrite(LCD_BL_GPIO, HIGH); // LCD backlight off
   #if(OMOTE_HARDWARE_REV >= 5)
   digitalWrite(SD_EN_GPIO, HIGH); // SD card off
+  keyboardBacklight_shutdown_HAL();
   #endif
   // pinMode(CRG_STAT, INPUT); // Disable Pull-Up
   pinMode(IR_RX_GPIO, INPUT); // force IR receiver pin to INPUT to prevent high current during sleep (additional 60 uA)
@@ -210,6 +211,7 @@ void enterSleep(){
   #endif
   // Force display pins to high impedance
   // Without this the display might not wake up from sleep
+  release_backlight_pin();
   pinMode(LCD_BL_GPIO, INPUT);
   pinMode(LCD_EN_GPIO, INPUT);
   gpio_hold_en((gpio_num_t)LCD_BL_GPIO);

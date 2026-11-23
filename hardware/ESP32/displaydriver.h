@@ -80,6 +80,15 @@
 // Common to all drivers, defined in displaydriver.cpp --------------------------------------------
 // Backlight PWM and LCD power, has to run before init_tft().
 void setup_tft(void);
+// setup_tft configures the backlight channel by hand, and the Arduino ledc calls only
+// reach pins they attached themselves. So the duty is written through the IDF driver.
+void set_backlight_duty(uint32_t duty);
+// digitalWrite ignores a pin that pinMode has not set up. That is every pin the display
+// driver owns, and any pin that needs its level before it becomes an output.
+void set_lcd_pin_level(uint8_t pin, uint8_t level);
+// pinMode(INPUT) leaves a routed peripheral signal on the pin. So the backlight pin goes
+// back to plain GPIO first, or sleep holds it at whatever level the PWM was driving.
+void release_backlight_pin(void);
 // Starts Wire on OMOTE's pins, has to run after init_tft().
 void setup_wire(void);
 // Allocates the LVGL draw buffer(s) and fills draw_buf.

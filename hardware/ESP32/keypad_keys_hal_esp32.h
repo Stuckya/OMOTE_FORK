@@ -25,4 +25,5 @@ void keys_getKeys_HAL(void* ptr, unsigned long currentMillis);
     void set_keyboardBrightness_HAL(uint8_t aKeyboardBrightness);
 
     void keypad_flush_HAL(void);
+    void keyboardBacklight_shutdown_HAL(void);
 #endif

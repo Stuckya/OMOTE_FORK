@@ -6,13 +6,30 @@
 #include <lvgl.h>
 #include <esp_heap_caps.h>
 #include <soc/soc_memory_layout.h> // esp_ptr_internal(), to report where the draw buffers ended up
+#include "driver/gpio.h"
 #include "driver/ledc.h"
+#include "esp_rom_gpio.h"
+#include "soc/gpio_sig_map.h"
 #include "displaydriver.h"
+
+void set_backlight_duty(uint32_t duty) {
+  ledc_set_duty(LEDC_SPEED_MODE, LEDC_CHANNEL_5, duty);
+  ledc_update_duty(LEDC_SPEED_MODE, LEDC_CHANNEL_5);
+}
+
+void release_backlight_pin(void) {
+  esp_rom_gpio_connect_out_signal(LCD_BL_GPIO, SIG_GPIO_OUT_IDX, false, false);
+}
+
+void set_lcd_pin_level(uint8_t pin, uint8_t level) {
+  gpio_set_level((gpio_num_t)pin, level);
+}
 
 void setup_tft(void) {
   // Configure the backlight PWM
   // Manual setup because ledcSetup() briefly turns on the backlight
-  ledc_channel_config_t ledc_channel_left;
+  // Both configs start zeroed, because IDF 5 added fields that this code does not set.
+  ledc_channel_config_t ledc_channel_left = {};
   ledc_channel_left.gpio_num = (gpio_num_t)LCD_BL_GPIO;
   ledc_channel_left.speed_mode = LEDC_SPEED_MODE;
   ledc_channel_left.channel = LEDC_CHANNEL_5;
@@ -29,7 +46,7 @@ void setup_tft(void) {
   // https://miro.medium.com/v2/resize:fit:1400/1*ViqSTFdH9COZ51iKYrIyMA.png
   ledc_channel_config(&ledc_channel_left);
 
-  ledc_timer_config_t ledc_timer;
+  ledc_timer_config_t ledc_timer = {};
   ledc_timer.speed_mode = LEDC_SPEED_MODE;
   ledc_timer.duty_resolution = LEDC_TIMER_8_BIT;
   ledc_timer.timer_num = LEDC_TIMER_1;

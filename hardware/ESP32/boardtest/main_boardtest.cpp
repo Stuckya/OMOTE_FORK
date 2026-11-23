@@ -9,6 +9,7 @@
   #include <Keypad.h> // modified for inverted logic
 #endif
 #include <esp_heap_caps.h>
+#include <esp_mac.h>
 #include <soc/soc_memory_layout.h> // esp_ptr_internal(), to report where the draw buffer ended up
 #include "SparkFunLIS3DH.h"
 #include "Wire.h"
@@ -339,27 +340,30 @@ void enterSleep(){
   #endif
 
   // Prepare IO states
-  digitalWrite(LCD_DC_GPIO, LOW); // LCD control signals off
-  digitalWrite(LCD_CS_GPIO, LOW);
+  set_lcd_pin_level(LCD_DC_GPIO, LOW); // LCD control signals off
+  set_lcd_pin_level(LCD_CS_GPIO, LOW);
   #if(OMOTE_HARDWARE_REV >= 5)
-    digitalWrite(LCD_WR_GPIO, LOW);
-    digitalWrite(LCD_RD_GPIO, LOW);
-    digitalWrite(LCD_D0_GPIO, LOW);
-    digitalWrite(LCD_D1_GPIO, LOW);
-    digitalWrite(LCD_D2_GPIO, LOW);
-    digitalWrite(LCD_D3_GPIO, LOW);
-    digitalWrite(LCD_D4_GPIO, LOW);
-    digitalWrite(LCD_D5_GPIO, LOW);
-    digitalWrite(LCD_D6_GPIO, LOW);
-    digitalWrite(LCD_D7_GPIO, LOW);
+    set_lcd_pin_level(LCD_WR_GPIO, LOW);
+    set_lcd_pin_level(LCD_RD_GPIO, LOW);
+    set_lcd_pin_level(LCD_D0_GPIO, LOW);
+    set_lcd_pin_level(LCD_D1_GPIO, LOW);
+    set_lcd_pin_level(LCD_D2_GPIO, LOW);
+    set_lcd_pin_level(LCD_D3_GPIO, LOW);
+    set_lcd_pin_level(LCD_D4_GPIO, LOW);
+    set_lcd_pin_level(LCD_D5_GPIO, LOW);
+    set_lcd_pin_level(LCD_D6_GPIO, LOW);
+    set_lcd_pin_level(LCD_D7_GPIO, LOW);
   #else
-    digitalWrite(LCD_MOSI_GPIO, LOW);
-    digitalWrite(LCD_SCK_GPIO, LOW);
+    set_lcd_pin_level(LCD_MOSI_GPIO, LOW);
+    set_lcd_pin_level(LCD_SCK_GPIO, LOW);
   #endif
   digitalWrite(LCD_EN_GPIO, HIGH); // LCD logic off
   digitalWrite(LCD_BL_GPIO, HIGH); // LCD backlight off
   #if(OMOTE_HARDWARE_REV >= 5)
   digitalWrite(SD_EN_GPIO, HIGH); // SD card off
+  // Deep sleep holds this pin at the level it has, and a running PWM leaves that to chance.
+  pinMode(KBD_BL_GPIO, OUTPUT);
+  digitalWrite(KBD_BL_GPIO, LOW);
   #endif
   // pinMode(CRG_STAT, INPUT); // Disable Pull-Up
   pinMode(IR_RX_GPIO, INPUT); // force IR receiver pin to INPUT to prevent high current during sleep (additional 60 uA)
@@ -385,6 +389,7 @@ void enterSleep(){
   #endif
   // Force display pins to high impedance
   // Without this the display might not wake up from sleep
+  release_backlight_pin();
   pinMode(LCD_BL_GPIO, INPUT);
   pinMode(LCD_EN_GPIO, INPUT);
   gpio_hold_en((gpio_num_t)LCD_BL_GPIO);
@@ -610,9 +615,10 @@ void setup() {
   keypad.writeRegister(TCA8418_REG_GPI_EM_1, 0b00111111);
   keypad.writeRegister(TCA8418_REG_GPI_EM_2, 0b00011111); // disable interrupt for COL5 (USB_3V3)
   
-  ledcSetup(LEDC_CHANNEL_6, 5000, 8);
-  ledcAttachPin(KBD_BL_GPIO, LEDC_CHANNEL_6);
-  ledcWrite(LEDC_CHANNEL_6, 0);
+  // The S3's PWM timers share one clock, and setup_tft runs the backlight timer on APB.
+  ledcSetClockSource(LEDC_USE_APB_CLK);
+  ledcAttachChannel(KBD_BL_GPIO, 5000, 8, LEDC_CHANNEL_6);
+  ledcWrite(KBD_BL_GPIO, 0);
 
   #else
   // Button Pin Definition
@@ -685,17 +691,17 @@ void loop() {
   if (millis() < fadeInTimer + backlightBrightness) {
     // after boot or wakeup, fade in backlight brightness
     // fade in lasts for <backlightBrightness> ms
-    ledcWrite(LEDC_CHANNEL_5, millis() - fadeInTimer);
+    set_backlight_duty(millis() - fadeInTimer);
   } else {
     if(standbyTimer < 2000 && !show_touches) {
       // less than 2000 ms until standby
       // dim backlight
-      ledcWrite(LEDC_CHANNEL_5, 85);
+      set_backlight_duty(85);
     } else {
       // normal mode, set full backlightBrightness
       // turn off PWM if backlight is at full brightness
       if(backlightBrightness < 255){
-        ledcWrite(LEDC_CHANNEL_5, backlightBrightness);
+        set_backlight_duty(backlightBrightness);
       }
       else{
         ledc_stop(LEDC_SPEED_MODE, LEDC_CHANNEL_5, 255);
@@ -707,18 +713,18 @@ void loop() {
   if (millis() < fadeInTimer + keyboardBrightness) {
     // after boot or wakeup, fade in keyboard brightness
     // fade in lasts for <keyboardBrightness> ms
-    ledcWrite(LEDC_CHANNEL_6, millis() - fadeInTimer);
+    ledcWrite(KBD_BL_GPIO, millis() - fadeInTimer);
   }
   else {
     if(standbyTimer < 2000 && !show_touches) {
       // less than 2000 ms until standby
       // dim keyboard
-      ledcWrite(LEDC_CHANNEL_6, 160);
+      ledcWrite(KBD_BL_GPIO, 160);
     } else {
       // normal mode, set full keyboardBrightness
       // turn off PWM if keyboard is at full brightness
       if(keyboardBrightness < 255){
-        ledcWrite(LEDC_CHANNEL_6, keyboardBrightness);
+        ledcWrite(KBD_BL_GPIO, keyboardBrightness);
       }
       else{
         ledc_stop(LEDC_SPEED_MODE, LEDC_CHANNEL_6, 255);
