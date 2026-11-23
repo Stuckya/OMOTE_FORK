@@ -55,6 +55,8 @@ uint16_t DENONAVR_POWER_OFF;
 uint16_t DENONAVR_VOL_MINUS;
 uint16_t DENONAVR_VOL_PLUS;
 uint16_t DENONAVR_VOL_MUTE;
+uint16_t DENONAVR_INPUT_SHIELD;
+uint16_t DENONAVR_INPUT_APPLETV;
 
 void register_device_denonAvr() {
 
@@ -66,6 +68,9 @@ void register_device_denonAvr() {
     register_hub_command(&DENONAVR_VOL_MINUS, "DENON_AVR", "VOL_MINUS");
     register_hub_command(&DENONAVR_VOL_PLUS, "DENON_AVR", "VOL_PLUS");
     register_hub_command(&DENONAVR_VOL_MUTE, "DENON_AVR", "VOL_MUTE");
+    // The hub matches these against the receiver's source list, so a renamed source goes by its new name.
+    register_hub_command_with_params(&DENONAVR_INPUT_SHIELD, "DENON_AVR", "INPUT_SELECT", {"SHIELD"});
+    register_hub_command_with_params(&DENONAVR_INPUT_APPLETV, "DENON_AVR", "INPUT_SELECT", {"Apple TV"});
   #endif
 
   // tested with Denon AVR-S660H, works also with others

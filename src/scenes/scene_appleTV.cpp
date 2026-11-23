@@ -43,6 +43,7 @@ void scene_start_sequence_appleTV(void) {
   #if (ENABLE_HUB_COMMUNICATION > 0)
   execute_hub_command(APPLETV_POWER_ON);
   execute_hub_command(DENONAVR_POWER_ON);
+  execute_hub_command(DENONAVR_INPUT_APPLETV);
   execute_hub_command(LGTV_POWER_ON);
   #endif
 }

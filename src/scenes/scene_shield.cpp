@@ -46,6 +46,7 @@ void scene_start_sequence_shield(void) {
   #if (ENABLE_HUB_COMMUNICATION > 0)
   execute_hub_command(SHIELD_POWER_ON);
   execute_hub_command(DENONAVR_POWER_ON);
+  execute_hub_command(DENONAVR_INPUT_SHIELD);
   execute_hub_command(LGTV_POWER_ON);
   #endif
 }

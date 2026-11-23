@@ -204,6 +204,12 @@ void sendHubMessage(const std::string& device, const std::string& command, Comma
   sendHubMessage(device, Hub::ProtoCodec::stringToCommand(command), cmdType);
 }
 
+static void sendHubInputSelect(const std::string& device, const std::string& input) {
+  omote_log_d("execute: will send hub input select for device '%s', input '%s'\r\n",
+              device.c_str(), input.c_str());
+  HubManager::getInstance().sendRemoteEvent(Hub::ProtoCodec::createInputSelectEvent(device, input));
+}
+
 void executeCommandWithData(uint16_t command, commandData commandData, std::string additionalPayload) {
   switch (commandData.commandHandler) {
     case IR: {
@@ -287,6 +293,12 @@ void executeCommandWithData(const CommandExecutionParams& params, commandData co
 
     const std::string commandName = *current;
     current = std::next(current, 1);
+
+    if (Hub::ProtoCodec::stringToCommand(commandName) == omote_OmoteCommand_INPUT_SELECT) {
+      const std::string input = (current != commandData.commandPayloads.end()) ? *current : "";
+      sendHubInputSelect(deviceName, input);
+      return;
+    }
 
     sendHubMessage(deviceName, commandName, params.commandType);
     return;
