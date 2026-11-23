@@ -1,12 +1,15 @@
 // OMOTE test firmware for ESP32 OMOTE, to test hardware feeatures of the OMOTE board
 // 2023-2025 Maximilian Kern, Klaus Musch
 
-#include <LovyanGFX.hpp>
+#include "../displaydriver.h"
+
 #if(OMOTE_HARDWARE_REV >= 5)
   #include <Adafruit_TCA8418.h>
 #else
   #include <Keypad.h> // modified for inverted logic
 #endif
+#include <esp_heap_caps.h>
+#include <soc/soc_memory_layout.h> // esp_ptr_internal(), to report where the draw buffer ended up
 #include "SparkFunLIS3DH.h"
 #include "Wire.h"
 #include <IRremoteESP8266.h>
@@ -15,7 +18,6 @@
 #include <IRutils.h>
 #include <lvgl.h>
 #include "WiFi.h"
-#include "driver/ledc.h"
 #include <SparkFun_MAX1704x_Fuel_Gauge_Arduino_Library.h>
 #include "secrets.h"
 #if(OMOTE_HARDWARE_REV >= 5)
@@ -28,24 +30,6 @@
 // Pin assignment ---------------------------------------------------------------------------------
 
 #if(OMOTE_HARDWARE_REV >= 5)
-  const uint8_t SDA_GPIO = 20;
-  const uint8_t SCL_GPIO = 19;
-
-  const uint8_t LCD_BL_GPIO = 9;
-  const uint8_t LCD_EN_GPIO = 38;
-  const uint8_t LCD_CS_GPIO = 39;
-  const uint8_t LCD_DC_GPIO = 40;
-  const uint8_t LCD_WR_GPIO = 41;
-  const uint8_t LCD_RD_GPIO = 42;
-  const uint8_t LCD_D0_GPIO = 48;
-  const uint8_t LCD_D1_GPIO = 47;
-  const uint8_t LCD_D2_GPIO = 21;
-  const uint8_t LCD_D3_GPIO = 14;
-  const uint8_t LCD_D4_GPIO = 13;
-  const uint8_t LCD_D5_GPIO = 12;
-  const uint8_t LCD_D6_GPIO = 11;
-  const uint8_t LCD_D7_GPIO = 10;
-
   const uint8_t USER_LED_GPIO = 45;
 
   const uint8_t IR_RX_GPIO  = 4; // IR receiver input
@@ -53,8 +37,6 @@
   const uint8_t IR_LED_GPIO = 5;  // IR LED output
 
   const uint8_t ACC_INT_GPIO = 2;
-
-  #define LEDC_SPEED_MODE LEDC_LOW_SPEED_MODE
 
   const uint8_t SD_EN_GPIO = 16;
   const uint8_t SD_CS_GPIO = 18;
@@ -64,16 +46,6 @@
   
   const uint8_t KBD_BL_GPIO = 46;
 #else
-  const uint8_t SDA_GPIO = 19;
-  const uint8_t SCL_GPIO = 22;
-
-  const uint8_t LCD_BL_GPIO = 4;
-  const uint8_t LCD_EN_GPIO = 10;
-  const uint8_t LCD_CS_GPIO = 5;
-  const uint8_t LCD_DC_GPIO = 9;
-  const uint8_t LCD_MOSI_GPIO = 23;
-  const uint8_t LCD_SCK_GPIO = 18;
-
   const uint8_t USER_LED_GPIO = 2;
 
   const uint8_t IR_RX_GPIO  = 15; // IR receiver input
@@ -81,8 +53,6 @@
   const uint8_t IR_LED_GPIO = 33; // IR LED output
 
   const uint8_t ACC_INT_GPIO = 13;
-
-  #define LEDC_SPEED_MODE LEDC_HIGH_SPEED_MODE
 #endif
 
 #if (OMOTE_HARDWARE_REV <= 3)
@@ -146,75 +116,6 @@ int standbyTimer = SLEEP_TIMEOUT;
 bool wakeupByIMUEnabled = true;
 LIS3DH IMU(I2C_MODE, 0x19); // Default constructor is I2C, addr 0x19.
 
-// LCD declarations -------------------------------------------------------------------------------
-class LGFX : public lgfx::LGFX_Device{
-private:
-    lgfx::Panel_ILI9341 _panel_instance;
-    #if(OMOTE_HARDWARE_REV >= 5)
-    lgfx::Bus_Parallel8 _bus_instance;
-    #else
-    lgfx::Bus_SPI _bus_instance;
-    #endif
-    lgfx::Touch_FT5x06 _touch_instance;
-
-public:
-    LGFX(void);
-};
-LGFX::LGFX(void) {
-  {
-    auto cfg = _bus_instance.config();
-    cfg.freq_write = SPI_FREQUENCY;
-    #if(OMOTE_HARDWARE_REV >= 5)
-    cfg.pin_wr = LCD_WR_GPIO;
-    cfg.pin_rd = LCD_RD_GPIO;
-    cfg.pin_rs = LCD_DC_GPIO;
-    cfg.pin_d0 = LCD_D0_GPIO;
-    cfg.pin_d1 = LCD_D1_GPIO;
-    cfg.pin_d2 = LCD_D2_GPIO;
-    cfg.pin_d3 = LCD_D3_GPIO;
-    cfg.pin_d4 = LCD_D4_GPIO;
-    cfg.pin_d5 = LCD_D5_GPIO;
-    cfg.pin_d6 = LCD_D6_GPIO;
-    cfg.pin_d7 = LCD_D7_GPIO;
-    #else
-    cfg.freq_read  = 16000000;
-    cfg.dma_channel = SPI_DMA_CH_AUTO;
-    cfg.pin_sclk = LCD_SCK_GPIO;
-    cfg.pin_mosi = LCD_MOSI_GPIO;
-    cfg.pin_dc   = LCD_DC_GPIO;
-    #endif
-    _bus_instance.config(cfg);
-    _panel_instance.setBus(&_bus_instance);
-  }
-  {
-    auto cfg = _panel_instance.config();
-    cfg.pin_cs           = LCD_CS_GPIO;
-    cfg.pin_rst          = -1;
-    cfg.pin_busy         = -1;
-    cfg.memory_width     = SCR_WIDTH;
-    cfg.memory_height    = SCR_HEIGHT;
-    cfg.panel_width      = SCR_WIDTH;
-    cfg.panel_height     = SCR_HEIGHT;
-    cfg.offset_rotation  = 2;
-    _panel_instance.config(cfg);
-  }
-  {
-    auto cfg = _touch_instance.config();
-    cfg.i2c_addr = 0x38;
-    cfg.i2c_port = 0;
-    cfg.pin_sda = SDA_GPIO;
-    cfg.pin_scl = SCL_GPIO;
-    cfg.freq = 400000;
-    cfg.x_min = 0;
-    cfg.x_max = SCR_WIDTH-1;
-    cfg.y_min = 0;
-    cfg.y_max = SCR_HEIGHT-1;
-    _touch_instance.config(cfg);
-    _panel_instance.setTouch(&_touch_instance);
-  }
-  setPanel(&_panel_instance);
-}
-LGFX tft;
 int backlightBrightness = 255;
 
 // Keypad declarations ----------------------------------------------------------------------------
@@ -246,9 +147,9 @@ enum Wakeup_reasons{WAKEUP_BY_RESET, WAKEUP_BY_IMU, WAKEUP_BY_KEYPAD};
 
 // LVGL declarations ------------------------------------------------------------------------------
 // we either show the checksTable with the test results, or an empty screen where all touches are shown as red dots
-static lv_disp_draw_buf_t draw_buf;
 lv_obj_t* checksTable;
 lv_obj_t* touchScreen;
+lv_obj_t* touchInfoLabel;
 
 // array for checking which keys have already been recognized
 #if(OMOTE_HARDWARE_REV >= 5)
@@ -287,52 +188,46 @@ static void show_touches_cb(lv_event_t * e) {
     if (!show_touches) {
       // create new screen, only showing touches
       touchScreen = lv_obj_create(NULL);
+      lv_obj_set_style_pad_all(touchScreen, 0, LV_PART_MAIN);
+      lv_obj_clear_flag(touchScreen, LV_OBJ_FLAG_SCROLLABLE);
       lv_scr_load(touchScreen);
+
+      // Status line at the bottom.
+      touchInfoLabel = lv_label_create(touchScreen);
+      lv_obj_set_style_text_font(touchInfoLabel, &lv_font_montserrat_10, LV_PART_MAIN);
+      lv_obj_set_style_text_color(touchInfoLabel, lv_color_hex(0x808080), LV_PART_MAIN);
+      lv_obj_set_width(touchInfoLabel, SCR_WIDTH);
+      lv_obj_align(touchInfoLabel, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+      lv_label_set_text(touchInfoLabel, "");
 
       show_touches = true;
     }
   }
 }
 
-// Display flushing
-void my_disp_flush( lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p ){
-  uint32_t w = ( area->x2 - area->x1 + 1 );
-  uint32_t h = ( area->y2 - area->y1 + 1 );
-
-  tft.startWrite();
-  tft.setAddrWindow( area->x1, area->y1, w, h );
-  // single buffer bufA
-  // tft.pushPixels((uint16_t*)&color_p->full, w * h, true);
-  // double buffer bufA and bufB
-  tft.pushPixelsDMA( ( uint16_t * )&color_p->full, w * h);
-  tft.endWrite();
-
-  lv_disp_flush_ready( disp );
-}
-
 // Read the touchpad
+bool touchChipResponds();
 void my_touchpad_read(lv_indev_drv_t * indev_driver, lv_indev_data_t * data) {
-    uint16_t x, y;
-    if (tft.getTouch(&x, &y)) {
-        data->state = LV_INDEV_STATE_PR;
-        data->point.x = x;
-        data->point.y = y;
+  // Ignore the touch until the controller has answered. The retry is done in loop(), which
+  // also updates the table - doing it here as well would set the flag without the table.
+  if (!TouchInitSuccessful) {
+    data->state = LV_INDEV_STATE_REL;
+    return;
+  }
 
-        standbyTimer = SLEEP_TIMEOUT;
+  my_touchpad_read_display_specific(indev_driver, data);
 
-        count_touches++;
-        // draw touch point
-        if (show_touches) {
-          if (x >= 0 && x < tft.width() && y >= 0 && y < tft.height()) {
-            tft.drawPixel(x, y, TFT_RED);
-          }
-        }
+  if (data->state == LV_INDEV_STATE_PR) {
+    standbyTimer = SLEEP_TIMEOUT;
 
-        lv_table_set_cell_value_fmt(checksTable, 8, 1, "%" LV_PRIu32, count_touches);
-
-    } else {
-        data->state = LV_INDEV_STATE_REL;
+    count_touches++;
+    // draw touch point
+    if (show_touches) {
+      draw_touchpoint(data->point.x, data->point.y);
     }
+
+    lv_table_set_cell_value_fmt(checksTable, 8, 1, "%" LV_PRIu32, count_touches);
+  }
 }
 
 int activityDetection(){
@@ -602,64 +497,16 @@ void setup() {
   lv_init();
 
   // setup TFT ------------------------------------------------------------------------------------
-  // Configure the backlight PWM
-  // Manual setup because ledcSetup() briefly turns on the backlight
-  ledc_channel_config_t ledc_channel_left;
-  ledc_channel_left.gpio_num = (gpio_num_t)LCD_BL_GPIO;
-  ledc_channel_left.speed_mode = LEDC_SPEED_MODE;
-  ledc_channel_left.channel = LEDC_CHANNEL_5;
-  ledc_channel_left.intr_type = LEDC_INTR_DISABLE;
-  ledc_channel_left.timer_sel = LEDC_TIMER_1;
-  // LEDC channel duty, the range of duty setting is [0, (2**duty_resolution)]
-  ledc_channel_left.duty = 0;
-  // needs to be set to 0, otherwise log message "E (324) ledc: ledc_set_duty_with_hpoint(699): hpoint argument is invalid"
-  // https://github.com/mudassar-tamboli/ESP32-OV7670-WebSocket-Camera/issues/13
-  // LEDC channel hpoint value, the max value is 0xfffff
-  ledc_channel_left.hpoint = 0;
-  ledc_channel_left.flags.output_invert = 1; // Can't do this with ledcSetup()
-  // hpoint and duty explained:
-  // https://miro.medium.com/v2/resize:fit:1400/1*ViqSTFdH9COZ51iKYrIyMA.png
-  ledc_channel_config(&ledc_channel_left);
+  setup_tft();
+  init_tft();
 
-  ledc_timer_config_t ledc_timer;
-  ledc_timer.speed_mode = LEDC_SPEED_MODE;
-  ledc_timer.duty_resolution = LEDC_TIMER_8_BIT;
-  ledc_timer.timer_num = LEDC_TIMER_1;
-  ledc_timer.freq_hz = 640;
-  // https://github.com/mudassar-tamboli/ESP32-OV7670-WebSocket-Camera/issues/13
-  // otherwise crash with "assert failed: ledc_clk_cfg_to_global_clk ledc.c:444 (false)"
-  ledc_timer.clk_cfg = LEDC_USE_APB_CLK;
-  esp_err_t err = ledc_timer_config(&ledc_timer);
-  if (err != ESP_OK) {
-    Serial.println("Error when calling ledc_timer_config!");
-  }  
+  setup_wire();
 
-  #if (OMOTE_HARDWARE_REV == 1)
-  // Slowly charge the VSW voltage to prevent a brownout
-  // Workaround for hardware rev 1!
-  Serial.println("Will slowly charge VSW voltage to prevent that screen is completely bright, with no content");
-  for(int i = 0; i < 100; i++) {
-    digitalWrite(LCD_EN_GPIO, HIGH);  // LCD Logic off
-    delayMicroseconds(1);
-    digitalWrite(LCD_EN_GPIO, LOW);   // LCD Logic on
-  }
-  #else
-  Serial.println("Will immediately charge VSW voltage. If screen is completely bright, with no content, then this is the reason.");
-  digitalWrite(LCD_EN_GPIO, LOW);
-  #endif
+  // Check if the touchscreen is responding
+  TouchInitSuccessful = touchChipResponds();
 
-  delay(100); // Wait for the LCD driver to power on
-  tft.init();
-  tft.initDMA();
-  tft.setRotation(0);
-  tft.fillScreen(TFT_BLACK);
-  tft.setSwapBytes(true);
-  
-  // setup LVGL -----------------------------------------------------------------------------------
-  // Double buffer
-  lv_color_t * bufA = (lv_color_t *) malloc(sizeof(lv_color_t) * SCR_WIDTH * SCR_HEIGHT / 10);
-  lv_color_t * bufB = (lv_color_t *) malloc(sizeof(lv_color_t) * SCR_WIDTH * SCR_HEIGHT / 10);
-  lv_disp_draw_buf_init( &draw_buf, bufA, bufB, SCR_WIDTH * SCR_HEIGHT / 10 );
+  // allocate lvgl buffers ----------------------------------------------------------------------------------
+  init_lvgl_buffer();
 
   // Initialize the display driver
   static lv_disp_drv_t disp_drv;
@@ -811,10 +658,6 @@ void setup() {
   printf("MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\r\n", mac_base[0], mac_base[1], mac_base[2], mac_base[3], mac_base[4], mac_base[5]);
 
   // provide some first test results --------------------------------------------------------------
-  // Check if the touchscreen is responding
-  boolean TouchInitSuccessful = false;
-  Wire.beginTransmission(0x38);
-  if(Wire.endTransmission() == 0) TouchInitSuccessful = true;
 
   if(TouchInitSuccessful) lv_table_set_cell_value_fmt(checksTable, 0, 1, LV_SYMBOL_OK);
   else lv_table_set_cell_value_fmt(checksTable, 0, 1, LV_SYMBOL_WARNING);
@@ -903,6 +746,19 @@ void loop() {
       enterSleep();
     }
     IMUTaskTimer = millis();
+  }
+
+  // Retry the touch controller check at 0.5Hz ------------------------------------------------------
+  // After a soft restart (ESP.restart()) the touch controller is not power cycled and can need
+  // a moment before it answers. Without this retry a single unlucky moment during setup would
+  // leave the warning in the table for the rest of the session. Until then my_touchpad_read()
+  // ignores the touch, so keep the interval short.
+  // This is the only place that retries, because it is the only one that also updates the table.
+  static unsigned long touchRetryTimer = millis();
+  if(!TouchInitSuccessful && (millis() - touchRetryTimer >= 500)) {
+    TouchInitSuccessful = touchChipResponds();
+    if(TouchInitSuccessful) lv_table_set_cell_value_fmt(checksTable, 0, 1, LV_SYMBOL_OK);
+    touchRetryTimer = millis();
   }
 
   // Update battery stats at 1Hz ------------------------------------------------------------------
@@ -1076,16 +932,7 @@ void loop() {
   if (show_touches) {
     static unsigned long touchInfoTimer = millis();
     if ((count_touches_old != count_touches) || (millis() - touchInfoTimer >= 1000)) {
-      tft.setColor(TFT_BLACK);
-      tft.setRawColor(TFT_BLACK);
-      tft.setBaseColor(TFT_BLACK);
-      tft.fillRect(0, 305, 240, 15);
-
-      tft.setFont(&fonts::Font2);
-      tft.setTextSize(0.9);
-      tft.setTextColor(TFT_DARKGREY);
-      tft.setCursor(0, 305);
-      tft.printf("touch count: %d | hit any key to reboot", count_touches);
+      lv_label_set_text_fmt(touchInfoLabel, "touch count: %d | hit any key to reboot", count_touches);
 
       count_touches_old = count_touches;
       touchInfoTimer = millis();
