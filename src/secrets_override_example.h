@@ -19,6 +19,14 @@
 // #define WIFI_BSSID   {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 // #define WIFI_CHANNEL 11
 
+// Optional. A fixed address skips DHCP on every wake.
+// Reserve the address on the router, or DHCP can hand it to another device.
+// WIFI_STATIC_DNS is only needed when MQTT_SERVER or WEBSOCKET_HUB_URL names a host instead of an address.
+// #define WIFI_STATIC_IP      "192.168.1.50"
+// #define WIFI_STATIC_GATEWAY "192.168.1.1"
+// #define WIFI_STATIC_SUBNET  "255.255.255.0"
+// #define WIFI_STATIC_DNS     "192.168.1.1"
+
 // MAC address of the hub
 // For unicast communication, use the hub's actual MAC address
 #define ESPNOW_HUB_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
