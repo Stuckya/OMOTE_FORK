@@ -5,7 +5,7 @@
 #include "applicationInternal/hardware/hardwarePresenter.h"
 #include "applicationInternal/commandHandler.h"
 // devices
-// #include "devices/mediaPlayer/device_appleTV/device_appleTV.h"
+#include "devices/mediaPlayer/device_appleTV/device_appleTV.h"
 #include "devices/mediaPlayer/device_shield/device_shield.h"
 #include "devices/TV/device_lgTV/device_lgTV.h"
 //#include "devices/AVreceiver/device_sonyAvr/device_sonyAvr.h"
@@ -38,6 +38,7 @@ void scene_start_sequence_allOff(void) {
   #if (ENABLE_HUB_COMMUNICATION > 0)
   execute_hub_command(LGTV_POWER_OFF);
   execute_hub_command(SHIELD_POWER_OFF);
+  execute_hub_command(APPLETV_POWER_OFF);
   execute_hub_command(DENONAVR_POWER_OFF);
   #else
   // executeCommand(SAMSUNG_POWER_ON);

@@ -13,6 +13,9 @@ inline std::vector<std::string> hubSyncTargetsForScene(const std::string& sceneN
   if (sceneName == "Shield") {
     return {"ANDROID_TV", "DENON_AVR", "LG_TV"};
   }
+  if (sceneName == "Apple TV") {
+    return {"APPLE_TV", "DENON_AVR", "LG_TV"};
+  }
   if (sceneName == "TV") {
     return {"LG_TV"};
   }
@@ -20,10 +23,10 @@ inline std::vector<std::string> hubSyncTargetsForScene(const std::string& sceneN
 }
 
 // The hub device a scene's volume keys drive — not necessarily its primary
-// sync target (Shield's primary is the media device; VOLUP/MUTE go to the AVR).
+// sync target (a media scene's primary is the player; VOLUP/MUTE go to the AVR).
 // Empty when the scene's volume is not hub-driven.
 inline std::string hubVolumeDeviceForScene(const std::string& sceneName) {
-  if (sceneName == "Shield") {
+  if (sceneName == "Shield" || sceneName == "Apple TV") {
     return "DENON_AVR";
   }
   return "";

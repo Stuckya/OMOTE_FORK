@@ -355,6 +355,12 @@ void test_scene_sync_targets_map_to_priority_ordered_devices() {
   TEST_ASSERT_EQUAL_STRING("DENON_AVR", shield[1].c_str());
   TEST_ASSERT_EQUAL_STRING("LG_TV", shield[2].c_str());
 
+  std::vector<std::string> appleTV = Hub::hubSyncTargetsForScene("Apple TV");
+  TEST_ASSERT_EQUAL_UINT(3, appleTV.size());
+  TEST_ASSERT_EQUAL_STRING("APPLE_TV", appleTV[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("DENON_AVR", appleTV[1].c_str());
+  TEST_ASSERT_EQUAL_STRING("LG_TV", appleTV[2].c_str());
+
   std::vector<std::string> tv = Hub::hubSyncTargetsForScene("TV");
   TEST_ASSERT_EQUAL_UINT(1, tv.size());
   TEST_ASSERT_EQUAL_STRING("LG_TV", tv[0].c_str());
@@ -367,8 +373,9 @@ void test_scene_sync_targets_empty_for_non_hub_scenes() {
 }
 
 void test_scene_volume_device_is_the_device_its_volume_keys_drive() {
-  // Shield's primary sync target is the media device, but VOLUP/MUTE go to the AVR.
+  // A media scene's primary sync target is the player, but VOLUP/MUTE go to the AVR.
   TEST_ASSERT_EQUAL_STRING("DENON_AVR", Hub::hubVolumeDeviceForScene("Shield").c_str());
+  TEST_ASSERT_EQUAL_STRING("DENON_AVR", Hub::hubVolumeDeviceForScene("Apple TV").c_str());
   TEST_ASSERT_TRUE(Hub::hubVolumeDeviceForScene("TV").empty());
   TEST_ASSERT_TRUE(Hub::hubVolumeDeviceForScene("Off").empty());
 }

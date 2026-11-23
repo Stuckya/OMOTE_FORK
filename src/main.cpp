@@ -24,7 +24,7 @@
 #include "devices/AVreceiver/device_denonAvr/device_denonAvr.h"
 // #include "devices/AVreceiver/device_lgsoundbar/device_lgsoundbar.h"
 //   media player
-//#include "devices/mediaPlayer/device_appleTV/device_appleTV.h"
+#include "devices/mediaPlayer/device_appleTV/device_appleTV.h"
 #include "devices/mediaPlayer/device_shield/device_shield.h"
 // #include "devices/mediaPlayer/device_lgbluray/device_lgbluray.h"
 // #include "devices/mediaPlayer/device_samsungbluray/device_samsungbluray.h"
@@ -53,7 +53,7 @@
 #include "scenes/scene_TV.h"
 #include "scenes/scene_fireTV.h"
 #include "scenes/scene_chromecast.h"
-// #include "scenes/scene_appleTV.h"
+#include "scenes/scene_appleTV.h"
 #include "scenes/scene_shield.h"
 #include "applicationInternal/scenes/sceneHandler.h"
 #if (ENABLE_HUB_COMMUNICATION > 0)
@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
   register_device_lgTV();
   //  register_device_sonyAvr();
   register_device_denonAvr();
-  //  register_device_appleTV();
+  register_device_appleTV();
   register_device_shield();
 
 
@@ -133,12 +133,11 @@ int main(int argc, char *argv[]) {
   // register the scenes and their key_commands_*
   register_scene_defaultKeys();
   register_scene_TV();
-  // register_scene_appleTV();
+  register_scene_appleTV();
   register_scene_shield();
   register_scene_allOff();
   // Only show these scenes on the sceneSelection gui. If you don't set this explicitely, by default all registered scenes are shown.
-  // set_scenes_on_sceneSelectionGUI({scene_name_TV, scene_name_appleTV});
-  set_scenes_on_sceneSelectionGUI({scene_name_TV, scene_name_shield});
+  set_scenes_on_sceneSelectionGUI({scene_name_TV, scene_name_shield, scene_name_appleTV});
 
   // init GUI - will initialize tft, touch and lvgl
   init_gui(); // This has to come before any other i2c devices are initialized, otherwise the i2c bus will not be powered
