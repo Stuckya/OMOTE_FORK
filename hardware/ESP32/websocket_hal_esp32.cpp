@@ -11,6 +11,11 @@ bool isConnected = false;
 // to 0, so loop() refuses to connect until millis() exceeds this interval.
 // Anything larger simply postpones the initial connection by that much.
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL_MS = 500;
+const unsigned long HEARTBEAT_PING_INTERVAL_MS = 5000;
+// TCP re-sends a lost packet 2 to 3 s later. A shorter wait drops the connection over one lost packet.
+const unsigned long HEARTBEAT_PONG_TIMEOUT_MS = 4000;
+const uint8_t HEARTBEAT_MISSED_PONGS_BEFORE_DISCONNECT = 2;
+static_assert(HEARTBEAT_PONG_TIMEOUT_MS < HEARTBEAT_PING_INTERVAL_MS, "each ping restarts the wait for a pong");
 
 void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
   switch(type) {
@@ -87,8 +92,8 @@ void init_websocket_HAL(const char* hub_url) {
   
   webSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL_MS);
   
-  // Enable heartbeat: ping every 5s, expect pong within 1s, disconnect after 2 missed
-  webSocket.enableHeartbeat(5000, 1000, 2);
+  webSocket.enableHeartbeat(HEARTBEAT_PING_INTERVAL_MS, HEARTBEAT_PONG_TIMEOUT_MS,
+                            HEARTBEAT_MISSED_PONGS_BEFORE_DISCONNECT);
   
   Serial.printf("[%lu ms] WebSocket Client initialized (reconnect interval %lu ms)\n",
                 millis(), WEBSOCKET_RECONNECT_INTERVAL_MS);
