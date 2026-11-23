@@ -141,12 +141,12 @@ void setMainWidgetsHeightAndPosition();
 void init_gui_status_bar();
 void init_gui_memoryUsage_bar();
 void init_gui_notification_system();
-void init_gui(void) {
-
-  // Setup LVGL ---------------------------------------------------------------------------------------------
+void init_display(void) {
   lv_init();
-
   init_lvgl_hardware();
+}
+
+void init_gui(void) {
 
   // -- draw red border around the main widgets -------------------------------------------------------------
   if (!global_styles_already_initialized) {

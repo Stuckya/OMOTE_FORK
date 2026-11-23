@@ -62,6 +62,29 @@
 #endif
 #include "secrets.h"
 
+#if (ENABLE_HUB_COMMUNICATION > 0)
+static void init_hub() {
+  #if (ENABLE_HUB_COMMUNICATION == 1)
+  const HubTransport preferredTransport = HubTransport::ESPNOW;
+  #elif (ENABLE_HUB_COMMUNICATION == 2)
+  const HubTransport preferredTransport = HubTransport::MQTT;
+  #elif (ENABLE_HUB_COMMUNICATION == 3)
+  const HubTransport preferredTransport = HubTransport::WEBSOCKET;
+  #else
+    #error "Invalid ENABLE_HUB_COMMUNICATION value"
+  #endif
+
+  HubManager::getInstance().init(preferredTransport);
+  HubManager::getInstance().setMessageHandler(handleHubCommandResult);
+  HubManager::getInstance().setEventTransmittedCallback(handleHubEventTransmitted);
+
+  if (should_poll_hub_state_on_startup()) {
+    clear_hub_state_poll_flag();
+    HubManager::getInstance().requestStateSync();
+  }
+}
+#endif
+
 #if defined(ARDUINO)
 // Handling one hub state sync reply takes about 8.1 kB of stack. The Arduino default of 8192 left 60 bytes.
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);
@@ -146,8 +169,9 @@ int main(int argc, char *argv[]) {
   // Only show these scenes on the sceneSelection gui. If you don't set this explicitely, by default all registered scenes are shown.
   set_scenes_on_sceneSelectionGUI({scene_name_TV, scene_name_shield, scene_name_appleTV});
 
-  // init GUI - will initialize tft, touch and lvgl
-  init_gui(); // This has to come before any other i2c devices are initialized, otherwise the i2c bus will not be powered
+  // will initialize tft, touch and lvgl
+  init_display(); // This has to come before any other i2c devices are initialized, otherwise the i2c bus will not be powered
+  init_gui();
   setLabelActiveScene();
   gui_loop(); // Run the LVGL UI once before the loop takes over
   
@@ -164,30 +188,8 @@ int main(int argc, char *argv[]) {
   init_mqtt();
   #endif
 
-   // Initialize hub communication with preferred transport from settings
   #if (ENABLE_HUB_COMMUNICATION > 0)
-    HubTransport preferredTransport;
-
-    #if (ENABLE_HUB_COMMUNICATION == 1)
-      preferredTransport = HubTransport::ESPNOW;  // ESP-NOW transport
-    #elif (ENABLE_HUB_COMMUNICATION == 2)
-      preferredTransport = HubTransport::MQTT;    // MQTT transport
-    #elif (ENABLE_HUB_COMMUNICATION == 3)
-      preferredTransport = HubTransport::WEBSOCKET;  // WebSocket transport
-    #else
-      #error "Invalid ENABLE_HUB_COMMUNICATION value"
-    #endif
-
-    // Initialize the hub manager with the preferred transport
-    HubManager::getInstance().init(preferredTransport);
-    
-    HubManager::getInstance().setMessageHandler(handleHubCommandResult);
-    HubManager::getInstance().setEventTransmittedCallback(handleHubEventTransmitted);
-    
-    if (should_poll_hub_state_on_startup()) {
-      clear_hub_state_poll_flag();
-      HubManager::getInstance().requestStateSync();
-    }
+  init_hub();
   #endif
 
   // setup keyboard matrix driver

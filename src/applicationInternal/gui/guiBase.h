@@ -29,6 +29,7 @@ extern lv_style_t style_red_border;
 #endif
 
 // used by main.cpp
+void init_display(void);
 void init_gui(void);
 // used by main.cpp and sceneHandler.cpp
 void gui_loop(void);
