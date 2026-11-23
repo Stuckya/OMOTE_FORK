@@ -19,6 +19,7 @@
 #include "applicationInternal/hub/powerStatus.h"
 #include "applicationInternal/hub/sleepTimer.h"
 #include "applicationInternal/hub/hubDeviceNames.h"
+#include "applicationInternal/hub/hubDeviceStateListeners.h"
 #include "applicationInternal/gui/guiStatusUpdate.h"
 #include <hubDeviceStateCache.h>
 
@@ -387,6 +388,7 @@ static void mergePushedDeviceState(const omote_DeviceState& state) {
   const bool volumeMoved = hubDeviceStateCache.volumeChangedBy(state);
   hubDeviceStateCache.merge(state);
   Hub::PowerStatus::observed(state);
+  Hub::notifyDeviceStateListener(state);
   if (!volumeMoved || HubManager::getInstance().volumeDeviceId() != state.device_id) {
     return;
   }
