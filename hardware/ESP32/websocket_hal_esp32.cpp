@@ -18,9 +18,6 @@ std::string hubUrl;
 // Read and written only by the task that holds the socket.
 bool socketBegun = false;
 }
-// Also gates the FIRST attempt: the client initialises its last-failure stamp
-// to 0, so loop() refuses to connect until millis() exceeds this interval.
-// Anything larger simply postpones the initial connection by that much.
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL_MS = 500;
 const unsigned long HEARTBEAT_PING_INTERVAL_MS = 5000;
 // TCP re-sends a lost packet 2 to 3 s later. A shorter wait drops the connection over one lost packet.
@@ -95,8 +92,7 @@ static void beginSocket(const char* hub_url) {
   
   Serial.printf("Connecting to host: %s, port: %d, path: %s\n", host.c_str(), port, path.c_str());
   
-  // Timestamped: the first attempt runs before WiFi has associated, and a
-  // failed one costs a full WEBSOCKET_RECONNECT_INTERVAL_MS before the retry.
+  // Timestamped: a failed first attempt costs a full WEBSOCKET_RECONNECT_INTERVAL_MS before the retry.
   Serial.printf("[%lu ms] WebSocket first connect attempt\n", millis());
   webSocket.begin(host, port, path);
   webSocket.onEvent(onWebSocketEvent);
@@ -110,6 +106,14 @@ static void beginSocket(const char* hub_url) {
                 millis(), WEBSOCKET_RECONNECT_INTERVAL_MS);
 }
 
+// The client measures its reconnect interval from a last-failure stamp that starts at 0, so it
+// would hold the first attempt back until that much uptime has passed.
+static void makeFirstConnectAttempt() {
+  webSocket.setReconnectInterval(0);
+  webSocket.loop();
+  webSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL_MS);
+}
+
 static void driveSocket() {
   if (hubUrl.empty()) {
     return;
@@ -117,6 +121,8 @@ static void driveSocket() {
   if (!socketBegun) {
     beginSocket(hubUrl.c_str());
     socketBegun = true;
+    makeFirstConnectAttempt();
+    return;
   }
   webSocket.loop();
 }
