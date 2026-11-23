@@ -1,4 +1,5 @@
 #include "websocket_hal_windows_linux.h"
+#include "mqtt_hal_windows_linux.h"
 #include "secrets.h"
 #include "lib/easywsclient/easywsclient.hpp"
 #include <iostream>
@@ -62,6 +63,15 @@ void reconnect_loop() {
         std::this_thread::sleep_for(std::chrono::milliseconds(RECONNECT_DELAY_MS));
     }
 }
+
+#if (ENABLE_WIFI_AND_MQTT == 1)
+// The simulator has no display wait to hide a connect behind: start WiFi here and let
+// init_websocket_HAL() open the socket as before.
+void start_wifi_and_websocket_in_background_HAL(const char* hub_url) {
+  (void)hub_url;
+  init_mqtt_HAL();
+}
+#endif
 
 void init_websocket_HAL(const char* hub_url) {
     hubUrl = hub_url;

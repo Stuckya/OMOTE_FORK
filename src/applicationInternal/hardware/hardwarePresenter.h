@@ -168,6 +168,7 @@ void set_espnow_message_callback(void (*callback)(const uint8_t* data, size_t le
 
 // --- WebSocket --------------------------------------------------------------
 #if (ENABLE_HUB_COMMUNICATION == 3)
+void start_hub_link_in_background();
 void init_websocket(const char* hub_url);
 void websocket_loop();
 bool publishWebSocketMessage(const uint8_t* data, size_t len);

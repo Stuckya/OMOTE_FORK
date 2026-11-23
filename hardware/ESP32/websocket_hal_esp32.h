@@ -3,6 +3,10 @@
 #include <cstdint>
 #include <cstddef>
 
+#if (ENABLE_WIFI_AND_MQTT == 1)
+// Starts WiFi and connects the socket on their own task. websocket_loop_HAL() takes the socket over.
+void start_wifi_and_websocket_in_background_HAL(const char* hub_url);
+#endif
 void init_websocket_HAL(const char* hub_url);
 void websocket_loop_HAL();
 bool publishWebSocketMessage_HAL(const uint8_t* data, size_t len);

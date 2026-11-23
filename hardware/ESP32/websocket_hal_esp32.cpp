@@ -1,12 +1,23 @@
 #include <WiFi.h>
 #include <WebSocketsClient.h>
+#include <atomic>
 #include <string>
+#include <socketHandover.h>
 #include "websocket_hal_esp32.h"
+#include "mqtt_hal_esp32.h"
 #include "secrets.h"
 
 WebSocketsClient webSocket;
 tAnnounceWebSocketMessage_cb thisAnnounceWebSocketMessage_cb = NULL;
-bool isConnected = false;
+// Written by whichever task drives the socket, read by the main loop.
+std::atomic<bool> isConnected{false};
+
+namespace {
+SocketHandover socketHandover;
+std::string hubUrl;
+// Read and written only by the task that holds the socket.
+bool socketBegun = false;
+}
 // Also gates the FIRST attempt: the client initialises its last-failure stamp
 // to 0, so loop() refuses to connect until millis() exceeds this interval.
 // Anything larger simply postpones the initial connection by that much.
@@ -48,7 +59,7 @@ void set_announceWebSocketMessage_cb_HAL(tAnnounceWebSocketMessage_cb pAnnounceW
   thisAnnounceWebSocketMessage_cb = pAnnounceWebSocketMessage_cb;
 }
 
-void init_websocket_HAL(const char* hub_url) {
+static void beginSocket(const char* hub_url) {
   Serial.printf("Initializing WebSocket Client connection to %s\n", hub_url);
   
   String urlStr(hub_url);
@@ -99,12 +110,67 @@ void init_websocket_HAL(const char* hub_url) {
                 millis(), WEBSOCKET_RECONNECT_INTERVAL_MS);
 }
 
-void websocket_loop_HAL() {
+static void driveSocket() {
+  if (hubUrl.empty()) {
+    return;
+  }
+  if (!socketBegun) {
+    beginSocket(hubUrl.c_str());
+    socketBegun = true;
+  }
   webSocket.loop();
 }
 
+#if (ENABLE_WIFI_AND_MQTT == 1)
+// The main loop and the display driver run on core 1.
+const BaseType_t BACKGROUND_CONNECT_CORE = 0;
+const UBaseType_t BACKGROUND_CONNECT_PRIORITY = 1;
+// The connect was measured at about 3 kB of stack.
+const uint32_t BACKGROUND_CONNECT_STACK_BYTES = 8192;
+
+static void connectInBackground(void*) {
+  init_mqtt_HAL();
+  while (socketHandover.backgroundShouldKeepConnecting(isConnected)) {
+    if (getIsWifiConnected_HAL()) {
+      driveSocket();
+    }
+    vTaskDelay(1);
+  }
+  socketHandover.giveBack();
+  vTaskDelete(NULL);
+}
+
+void start_wifi_and_websocket_in_background_HAL(const char* hub_url) {
+  if (!socketHandover.lendToBackground()) {
+    return;
+  }
+  hubUrl = hub_url;
+  const BaseType_t created = xTaskCreatePinnedToCore(connectInBackground, "hubConnect", BACKGROUND_CONNECT_STACK_BYTES,
+                                                     NULL, BACKGROUND_CONNECT_PRIORITY, NULL, BACKGROUND_CONNECT_CORE);
+  if (created != pdPASS) {
+    socketHandover.giveBack();
+    init_mqtt_HAL();
+  }
+}
+#endif
+
+void init_websocket_HAL(const char* hub_url) {
+  if (!socketHandover.mainLoopHoldsSocket()) {
+    return;
+  }
+  hubUrl = hub_url;
+}
+
+void websocket_loop_HAL() {
+  if (!socketHandover.mainLoopHoldsSocket()) {
+    socketHandover.askForSocketBack();
+    return;
+  }
+  driveSocket();
+}
+
 bool publishWebSocketMessage_HAL(const uint8_t* data, size_t len) {
-  if (!isConnected) {
+  if (!websocket_is_connected_HAL()) {
     Serial.println("WebSocket Client not connected, cannot send message");
     return false;
   }
@@ -123,15 +189,24 @@ bool publishWebSocketMessage_HAL(const uint8_t* data, size_t len) {
   return result;
 }
 
+static void takeSocketBackFromBackground() {
+  socketHandover.askForSocketBack();
+  while (!socketHandover.mainLoopHoldsSocket()) {
+    delay(1);
+  }
+}
+
 void websocket_shutdown_HAL() {
+  takeSocketBackFromBackground();
   Serial.println("Shutting down WebSocket Client");
   webSocket.disconnect();
   delay(50);  // Allow TCP stack to flush close frame before WiFi teardown
   isConnected = false;
+  socketBegun = false;
 }
 
 bool websocket_is_connected_HAL() {
-  return isConnected;
+  return isConnected && socketHandover.mainLoopHoldsSocket();
 }
 
 const char* get_websocket_hub_url_HAL() {

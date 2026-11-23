@@ -357,6 +357,11 @@ void set_espnow_message_callback(void (*callback)(const uint8_t* data, size_t le
 
 #if (ENABLE_HUB_COMMUNICATION == 3)
 // WebSocket hardware presenter functions
+void start_hub_link_in_background() {
+  set_announceWiFiconnected_cb_HAL(&receiveWiFiConnected_cb);
+  start_wifi_and_websocket_in_background_HAL(get_websocket_hub_url_HAL());
+}
+
 void init_websocket(const char* hub_url) {
   init_websocket_HAL(hub_url);
 }

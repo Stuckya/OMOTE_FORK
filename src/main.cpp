@@ -85,6 +85,10 @@ int main(int argc, char *argv[]) {
   init_from_sleep();
   // Restore settings from internal flash memory
   init_preferences();
+  #if (ENABLE_WIFI_AND_MQTT == 1) && (ENABLE_HUB_COMMUNICATION == 3)
+  // WiFi joins and the hub socket connects while the display sits in its power-on waits.
+  start_hub_link_in_background();
+  #endif
   // blinking led
   init_userled();
   // startup SD card
@@ -155,9 +159,8 @@ int main(int argc, char *argv[]) {
   init_keyboardBLE();
   #endif
 
-  // init WiFi - needs to be after init_gui() because WifiLabel must be available
   // init_mqtt() always initializes WiFi, but only sets up MQTT if needed
-  #if (ENABLE_WIFI_AND_MQTT == 1)
+  #if (ENABLE_WIFI_AND_MQTT == 1) && (ENABLE_HUB_COMMUNICATION != 3)
   init_mqtt();
   #endif
 
