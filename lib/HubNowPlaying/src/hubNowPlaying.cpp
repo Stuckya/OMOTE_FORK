@@ -73,6 +73,10 @@ uint32_t HubNowPlaying::coverHeight() const {
   return playback.cover.height;
 }
 
+const omote_Cover& HubNowPlaying::cover() const {
+  return playback.cover;
+}
+
 bool HubNowPlaying::hasProgress() const {
   return playback.duration > 0;
 }

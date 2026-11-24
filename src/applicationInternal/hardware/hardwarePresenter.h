@@ -5,6 +5,7 @@
 #include "applicationInternal/hardware/IRremoteProtocols.h"
 #include "applicationInternal/hardware/arduinoLayer.h"
 #include <nlohmann/json.hpp>
+#include <httpGetHandover.h>
 
 using json = nlohmann::json;
 
@@ -167,6 +168,11 @@ bool publishEspNowMessage(const uint8_t* data, size_t len);
 void espnow_shutdown();
 void set_espnow_message_callback(void (*callback)(const uint8_t* data, size_t len));
 #endif
+
+// --- HTTP -------------------------------------------------------------------
+bool startHttpGet(const char* url, uint8_t* body, size_t expectedLength, HttpGetHandover* handover);
+uint8_t* allocateLargeBuffer(size_t bytes);
+void freeLargeBuffer(uint8_t* buffer);
 
 // --- WebSocket --------------------------------------------------------------
 #if (ENABLE_HUB_COMMUNICATION == 3)

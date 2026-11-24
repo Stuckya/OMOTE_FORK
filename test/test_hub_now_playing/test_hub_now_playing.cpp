@@ -119,6 +119,7 @@ void test_playback_shows_the_cover_when_the_remote_fetches_art() {
   TEST_ASSERT_TRUE(HubNowPlaying::View::COVER == nowPlaying.view(true));
   TEST_ASSERT_EQUAL_UINT32(148, nowPlaying.coverWidth());
   TEST_ASSERT_EQUAL_UINT32(148, nowPlaying.coverHeight());
+  TEST_ASSERT_EQUAL_UINT32(148, nowPlaying.cover().width);
 }
 
 void test_playback_promotes_the_title_when_the_remote_cannot_fetch_art() {
