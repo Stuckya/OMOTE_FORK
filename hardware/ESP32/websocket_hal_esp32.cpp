@@ -3,6 +3,11 @@
 #include <atomic>
 #include <string>
 #include <socketHandover.h>
+#include <firstContact.h>
+#include <esp_netif.h>
+#include <esp_netif_net_stack.h>
+#include <lwip/etharp.h>
+#include <lwip/tcpip.h>
 #include "websocket_hal_esp32.h"
 #include "mqtt_hal_esp32.h"
 #include "secrets.h"
@@ -17,6 +22,9 @@ SocketHandover socketHandover;
 std::string hubUrl;
 // Read and written only by the task that holds the socket.
 bool socketBegun = false;
+bool firstAttemptMade = false;
+FirstContact firstContact;
+unsigned int addressAsks = 0;
 }
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL_MS = 500;
 const unsigned long HEARTBEAT_PING_INTERVAL_MS = 5000;
@@ -123,17 +131,58 @@ static void makeFirstConnectAttempt() {
   webSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL_MS);
 }
 
+// On the remote's own subnet the first packet goes to the hub itself, otherwise to the gateway.
+static ip4_addr_t firstHopToHub() {
+  HubEndpoint hub;
+  IPAddress hubAddress;
+  const uint32_t mask = WiFi.subnetMask();
+  const bool hubIsOnThisSubnet = parseHubUrl(hubUrl.c_str(), hub) && hubAddress.fromString(hub.host) &&
+                                 ((uint32_t)hubAddress & mask) == ((uint32_t)WiFi.localIP() & mask);
+  ip4_addr_t firstHop;
+  firstHop.addr = hubIsOnThisSubnet ? (uint32_t)hubAddress : (uint32_t)WiFi.gatewayIP();
+  return firstHop;
+}
+
+// lwIP asks for an address once, then only on its one-second timer. If the access point drops that
+// one request, the first connect stalls for as long. FirstContact asks again sooner.
+static bool pathToHubIsOpen() {
+  static const ip4_addr_t firstHop = firstHopToHub();
+  esp_netif_t* wifi = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  struct netif* station = wifi == nullptr ? nullptr : (struct netif*)esp_netif_get_netif_impl(wifi);
+  if (station == nullptr || ip4_addr_isany_val(firstHop)) {
+    return true;
+  }
+  struct eth_addr* hardwareAddress = nullptr;
+  const ip4_addr_t* entry = nullptr;
+  LOCK_TCPIP_CORE();
+  const bool addressKnown = etharp_find_addr(station, &firstHop, &hardwareAddress, &entry) >= 0;
+  const FirstContact::Step step = firstContact.next(millis(), addressKnown);
+  if (step == FirstContact::Step::AskForAddress) {
+    etharp_query(station, &firstHop, NULL);
+    addressAsks++;
+  }
+  UNLOCK_TCPIP_CORE();
+  return step == FirstContact::Step::Connect;
+}
+
 static void driveSocket() {
   if (hubUrl.empty()) {
     return;
   }
+  if (firstAttemptMade) {
+    webSocket.loop();
+    return;
+  }
+  // The first address request leaves before the setup, whose prints take about 12 ms.
+  const bool pathIsOpen = pathToHubIsOpen();
   if (!socketBegun) {
     beginSocket(hubUrl.c_str());
     socketBegun = true;
+  } else if (pathIsOpen) {
     makeFirstConnectAttempt();
-    return;
+    firstAttemptMade = true;
+    Serial.printf("[%lu ms] Hub connect started after %u address requests\n", millis(), addressAsks);
   }
-  webSocket.loop();
 }
 
 #if (ENABLE_WIFI_AND_MQTT == 1)
