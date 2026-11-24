@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include "applicationInternal/commandHandler.h"
+#include "applicationInternal/commandsBeforeGui.h"
 #include "applicationInternal/scenes/sceneHandler.h"
 #include "applicationInternal/hardware/hardwarePresenter.h"
 #include "applicationInternal/omote_log.h"
@@ -26,6 +27,8 @@
 // Latest per-device snapshots from the hub, fed by wake syncs and by pushes
 // when the hub runs with publish_device_state on.
 static HubDeviceStateCache hubDeviceStateCache;
+
+static CommandsBeforeGui commandsBeforeGui;
 
 uint16_t COMMAND_UNKNOWN;
 
@@ -338,10 +341,19 @@ void executeCommand(const CommandExecutionParams& params) {
     }
     
     commandData cmdData = commands.at(params.commandId);
+    if (!commandsBeforeGui.mayRunNow(params, cmdData)) {
+      return;
+    }
     executeCommandWithData(params, cmdData);
   }
   catch (const std::out_of_range& oor) {
     omote_log_e("executeCommand: internal error, command not registered\r\n");
+  }
+}
+
+void runCommandsThatWaitedForGui() {
+  for (const CommandExecutionParams& params : commandsBeforeGui.guiExists()) {
+    executeCommand(params);
   }
 }
 

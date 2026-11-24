@@ -137,8 +137,10 @@ struct CommandExecutionParams {
   std::string additionalPayload = "";
 };
 
-// Version that takes a parameter struct
+// Version that takes a parameter struct. Before the GUI exists it keeps a command that draws.
 void executeCommand(const CommandExecutionParams& params);
+// Setup calls this once everything a kept command may need is initialised.
+void runCommandsThatWaitedForGui();
 
 // Original executeCommandWithData
 void executeCommandWithData(uint16_t command, commandData commandData, std::string additionalPayload = "");

@@ -62,6 +62,9 @@
 #endif
 #include "secrets.h"
 
+// With the WebSocket transport, WiFi and the hub socket come up on their own task while the display initialises.
+#define HUB_LINK_STARTS_DURING_DISPLAY_INIT (ENABLE_WIFI_AND_MQTT == 1 && ENABLE_HUB_COMMUNICATION == 3)
+
 #if (ENABLE_HUB_COMMUNICATION > 0)
 static void init_hub() {
   #if (ENABLE_HUB_COMMUNICATION == 1)
@@ -108,8 +111,7 @@ int main(int argc, char *argv[]) {
   init_from_sleep();
   // Restore settings from internal flash memory
   init_preferences();
-  #if (ENABLE_WIFI_AND_MQTT == 1) && (ENABLE_HUB_COMMUNICATION == 3)
-  // WiFi joins and the hub socket connects while the display sits in its power-on waits.
+  #if HUB_LINK_STARTS_DURING_DISPLAY_INIT
   start_hub_link_in_background();
   #endif
   // blinking led
@@ -171,6 +173,12 @@ int main(int argc, char *argv[]) {
 
   // will initialize tft, touch and lvgl
   init_display(); // This has to come before any other i2c devices are initialized, otherwise the i2c bus will not be powered
+  #if HUB_LINK_STARTS_DURING_DISPLAY_INIT
+  // The hub is usually connected by now, so the key that woke the remote leaves before the GUI is built.
+  init_hub();
+  init_keys();
+  keypad_handleWakeKey();
+  #endif
   init_gui();
   setLabelActiveScene();
   gui_loop(); // Run the LVGL UI once before the loop takes over
@@ -183,8 +191,9 @@ int main(int argc, char *argv[]) {
   init_keyboardBLE();
   #endif
 
+  #if !HUB_LINK_STARTS_DURING_DISPLAY_INIT
   // init_mqtt() always initializes WiFi, but only sets up MQTT if needed
-  #if (ENABLE_WIFI_AND_MQTT == 1) && (ENABLE_HUB_COMMUNICATION != 3)
+  #if (ENABLE_WIFI_AND_MQTT == 1)
   init_mqtt();
   #endif
 
@@ -194,9 +203,12 @@ int main(int argc, char *argv[]) {
 
   // setup keyboard matrix driver
   init_keys();
+  #endif
 
   // setup the Inertial Measurement Unit (IMU) for motion detection. Has to be after init_gui(), otherwise I2C will not work
   init_IMU();
+
+  runCommandsThatWaitedForGui();
 
   omote_log_i("Setup finished in %lu ms.\r\n", millis());
 

@@ -211,3 +211,12 @@ void keypad_loop(void) {
   keypad_setKeyStatesAndCheckForHold();
   keypad_processKeyStates();
 }
+
+// The keypad hands over one event per pass. A tap is a press and a release.
+const int WAKE_KEY_EVENTS = 2;
+
+void keypad_handleWakeKey(void) {
+  for (int event = 0; event < WAKE_KEY_EVENTS; event++) {
+    keypad_loop();
+  }
+}

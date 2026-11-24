@@ -23,3 +23,5 @@ typedef std::map<char, uint16_t> *key_commands_short;
 typedef std::map<char, uint16_t> *key_commands_long;
 
 void keypad_loop(void);
+// Handles the key that woke the remote, as soon as the keypad can be read.
+void keypad_handleWakeKey(void);
