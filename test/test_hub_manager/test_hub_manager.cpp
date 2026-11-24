@@ -292,11 +292,15 @@ static omote_CommandResult makeWorstCaseSingleDeviceStateSync() {
 
   omote_Metadata& md = dev.media_player.playback;
   memset(md.title, 'T', sizeof(md.title) - 1);
-  memset(md.artist, 'A', sizeof(md.artist) - 1);
-  memset(md.album, 'L', sizeof(md.album) - 1);
+  memset(md.subtitle, 'A', sizeof(md.subtitle) - 1);
+  memset(md.caption, 'L', sizeof(md.caption) - 1);
   memset(md.state, 'S', sizeof(md.state) - 1);
   md.duration = 0xFFFFFFFF;
   md.position = 0xFFFFFFFF;
+  md.position_at = 0xFFFFFFFFFFFFFFFFull;
+  md.has_cover = true;
+  md.cover.width = 0xFFFFFFFF;
+  md.cover.height = 0xFFFFFFFF;
   return result;
 }
 

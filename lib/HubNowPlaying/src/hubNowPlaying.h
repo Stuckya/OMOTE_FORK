@@ -14,8 +14,8 @@ public:
   void observe(const omote_DeviceState& snapshot);
 
   std::string title() const;
-  std::string artist() const;
-  std::string album() const;
+  std::string subtitle() const;
+  std::string caption() const;
   State state() const;
 
   // False when the hub does not know the duration.

@@ -46,16 +46,16 @@ void test_nothing_is_playing_before_the_first_snapshot() {
 void test_a_snapshot_with_playback_reports_what_is_playing() {
   HubNowPlaying nowPlaying;
   omote_DeviceState snapshot = makePlayback("Blue in Green", "playing");
-  strncpy(snapshot.media_player.playback.artist, "Miles Davis",
-          sizeof(snapshot.media_player.playback.artist) - 1);
-  strncpy(snapshot.media_player.playback.album, "Kind of Blue",
-          sizeof(snapshot.media_player.playback.album) - 1);
+  strncpy(snapshot.media_player.playback.subtitle, "Miles Davis",
+          sizeof(snapshot.media_player.playback.subtitle) - 1);
+  strncpy(snapshot.media_player.playback.caption, "Kind of Blue",
+          sizeof(snapshot.media_player.playback.caption) - 1);
 
   nowPlaying.observe(snapshot);
 
   TEST_ASSERT_EQUAL_STRING("Blue in Green", nowPlaying.title().c_str());
-  TEST_ASSERT_EQUAL_STRING("Miles Davis", nowPlaying.artist().c_str());
-  TEST_ASSERT_EQUAL_STRING("Kind of Blue", nowPlaying.album().c_str());
+  TEST_ASSERT_EQUAL_STRING("Miles Davis", nowPlaying.subtitle().c_str());
+  TEST_ASSERT_EQUAL_STRING("Kind of Blue", nowPlaying.caption().c_str());
   TEST_ASSERT_TRUE(HubNowPlaying::State::PLAYING == nowPlaying.state());
 }
 

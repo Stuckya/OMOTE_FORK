@@ -120,12 +120,12 @@ static std::string title_text() {
 }
 
 static std::string artist_text() {
-  const std::string artist = nowPlaying.artist();
+  const std::string artist = nowPlaying.subtitle();
   if (artist.empty()) {
     return "";
   }
   std::string text = replace_bullet_chars(artist);
-  const std::string album = nowPlaying.album();
+  const std::string album = nowPlaying.caption();
   if (!album.empty()) {
     text += " • " + replace_bullet_chars(album);
   }

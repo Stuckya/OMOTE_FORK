@@ -16,12 +16,12 @@ std::string HubNowPlaying::title() const {
   return playback.title;
 }
 
-std::string HubNowPlaying::artist() const {
-  return playback.artist;
+std::string HubNowPlaying::subtitle() const {
+  return playback.subtitle;
 }
 
-std::string HubNowPlaying::album() const {
-  return playback.album;
+std::string HubNowPlaying::caption() const {
+  return playback.caption;
 }
 
 HubNowPlaying::State HubNowPlaying::state() const {
