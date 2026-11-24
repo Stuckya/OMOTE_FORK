@@ -172,6 +172,8 @@ void start_hub_link_in_background();
 void init_websocket(const char* hub_url);
 void websocket_loop();
 bool publishWebSocketMessage(const uint8_t* data, size_t len);
+bool leave_websocket_message_for_connect(const uint8_t* data, size_t len);
+bool websocket_message_left_for_connect_was_sent();
 void websocket_shutdown();
 bool websocket_is_connected();
 void set_websocket_message_callback(void (*callback)(const uint8_t* data, size_t len));

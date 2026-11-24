@@ -130,6 +130,17 @@ bool publishWebSocketMessage_HAL(const uint8_t* data, size_t len) {
     }
 }
 
+// The simulator connects on the main loop, so no other task could send the message.
+bool leave_websocket_message_for_connect_HAL(const uint8_t* data, size_t len) {
+    (void)data;
+    (void)len;
+    return false;
+}
+
+bool websocket_message_left_for_connect_was_sent_HAL() {
+    return false;
+}
+
 void websocket_shutdown_HAL() {
     std::cout << "[WebSocket HAL] Shutting down WebSocket connection" << std::endl;
     
