@@ -1,6 +1,7 @@
 #include <sstream>
 #include "WiFi.h"
 #include <PubSubClient.h>
+#include <mqttPacketBuffer.h>
 #include "mqtt_hal_esp32.h"
 #include "halCallback.h"
 #if (ENABLE_KEYBOARD_BLE == 1)
@@ -258,7 +259,7 @@ bool checkMQTTconnection() {
       return true;
     } else {
       // try to connect to mqtt server
-      mqttClient.setBufferSize(512);   // default is 256
+      mqttClient.setBufferSize(MQTT_PACKET_BUFFER_BYTES);
       //mqttClient.setKeepAlive(15);     // default is 15   Client will send MQTTPINGREQ to keep connection alive
       //mqttClient.setSocketTimeout(15); // default is 15   This determines how long the client will wait for incoming data when it expects data to arrive - for example, whilst it is in the middle of reading an MQTT packet.
       mqttClient.setServer(MQTT_SERVER, MQTT_SERVER_PORT); // MQTT initialization
@@ -319,7 +320,7 @@ bool publishMQTTMessage_HAL(const char *topic, const char *payload){
 
 bool publishMQTTMessageProto_HAL(const char *topic, const uint8_t* payload, size_t length){
 
-  if (length > 512) {
+  if (length > MQTT_PACKET_BUFFER_BYTES) {
     Serial.printf("Error: Protobuf message exceeds MQTT buffer size\r\n");
     return false;
   }
