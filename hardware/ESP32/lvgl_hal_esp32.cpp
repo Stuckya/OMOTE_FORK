@@ -33,11 +33,7 @@ void my_touchpad_read(lv_indev_drv_t * indev_driver, lv_indev_data_t * data) {
 }
 
 void init_lvgl_HAL() {
-  // first init TFT -----------------------------------------------------------------------------------------
   setup_tft();
-  init_tft();
-
-  setup_wire();
 
   // allocate lvgl buffers ----------------------------------------------------------------------------------
   init_lvgl_buffer();
@@ -58,4 +54,9 @@ void init_lvgl_HAL() {
   indev_drv.read_cb = my_touchpad_read;
   lv_indev_drv_register( &indev_drv );
 
+}
+
+void start_display_panel_HAL() {
+  init_tft();
+  setup_wire();
 }

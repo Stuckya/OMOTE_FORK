@@ -64,6 +64,9 @@
 
 // With the WebSocket transport, WiFi and the hub socket come up on their own task while the display initialises.
 #define HUB_LINK_STARTS_DURING_DISPLAY_INIT (ENABLE_WIFI_AND_MQTT == 1 && ENABLE_HUB_COMMUNICATION == 3)
+// Rev 5 builds the tabs while its panel powers up. Rev 1 to 4 builds them after the wake key: its
+// panel init gets no shorter, and its keypad loses a key that is released before the first read.
+#define TABS_ARE_BUILT_DURING_PANEL_POWER_UP (OMOTE_HARDWARE_REV >= 5)
 
 #if (ENABLE_HUB_COMMUNICATION > 0)
 static void init_hub() {
@@ -171,22 +174,30 @@ int main(int argc, char *argv[]) {
   // Only show these scenes on the sceneSelection gui. If you don't set this explicitely, by default all registered scenes are shown.
   set_scenes_on_sceneSelectionGUI({scene_name_TV, scene_name_shield, scene_name_appleTV});
 
-  // will initialize tft, touch and lvgl
-  init_display(); // This has to come before any other i2c devices are initialized, otherwise the i2c bus will not be powered
+  // Switches the display on and initialises lvgl. Nothing is sent to the panel yet.
+  init_display();
+  #if TABS_ARE_BUILT_DURING_PANEL_POWER_UP
+  init_gui_tabs();
+  #endif
+  // Initialises tft and touch. This has to come before any other i2c devices are initialized, otherwise the i2c bus will not be powered
+  start_display_panel();
   #if HUB_LINK_STARTS_DURING_DISPLAY_INIT
-  // The hub is usually connected by now, so the key that woke the remote leaves before the GUI is built.
+  // The hub is usually connected by now, so the key that woke the remote leaves before the GUI is finished.
   init_hub();
   init_keys();
   keypad_handleWakeKey();
   #endif
-  init_gui();
+  #if !TABS_ARE_BUILT_DURING_PANEL_POWER_UP
+  init_gui_tabs();
+  #endif
+  init_gui_bars();
   setLabelActiveScene();
   gui_loop(); // Run the LVGL UI once before the loop takes over
   
   // Power Pin and battery monitor definition
   init_battery();
 
-  // init BLE keyboard. Has to be after init_gui (because of powered I2C) and after init_battery (because of fuel gauge init)
+  // init BLE keyboard. Has to be after start_display_panel (because of powered I2C) and after init_battery (because of fuel gauge init)
   #if (ENABLE_KEYBOARD_BLE == 1)
   init_keyboardBLE();
   #endif
@@ -205,7 +216,7 @@ int main(int argc, char *argv[]) {
   init_keys();
   #endif
 
-  // setup the Inertial Measurement Unit (IMU) for motion detection. Has to be after init_gui(), otherwise I2C will not work
+  // setup the Inertial Measurement Unit (IMU) for motion detection. Has to be after start_display_panel(), otherwise I2C will not work
   init_IMU();
 
   runCommandsThatWaitedForGui();

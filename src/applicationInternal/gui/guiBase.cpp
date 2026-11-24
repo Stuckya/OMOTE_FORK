@@ -146,7 +146,7 @@ void init_display(void) {
   init_lvgl_hardware();
 }
 
-void init_gui(void) {
+void init_gui_tabs(void) {
 
   // -- draw red border around the main widgets -------------------------------------------------------------
   if (!global_styles_already_initialized) {
@@ -169,6 +169,8 @@ void init_gui(void) {
   setMainWidgetsHeightAndPosition();
   // On startup, set current GUIname and GUIlist according to last state before going to sleep
   guis_doTabCreationOnStartup();
+}
+void init_gui_bars(void) {
   // memoryUsage bar
   init_gui_memoryUsage_bar();
   // status bar
@@ -345,7 +347,7 @@ void gui_loop(void) {
 
 // ------------------------------------------------------------------------------------------------------------
 // There are several reasons why the tabs could get recreated. All are going through these functions in "guiBase.cpp", which are calling functions in "guiMemoryOptimizer.cpp"
-// 1. tab creation on startup (called by init_gui())
+// 1. tab creation on startup (called by init_gui_tabs())
 void guis_doTabCreationOnStartup() {
   gui_memoryOptimizer_onStartup(&tabview, &panel, &img1, &img2);
   doLogMemoryUsage();

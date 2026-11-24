@@ -25,6 +25,12 @@ void set_lcd_pin_level(uint8_t pin, uint8_t level) {
   gpio_set_level((gpio_num_t)pin, level);
 }
 
+static unsigned long displayPoweredAtMs = 0;
+
+unsigned long ms_since_display_power_on(void) {
+  return millis() - displayPoweredAtMs;
+}
+
 void setup_tft(void) {
   // Configure the backlight PWM
   // Manual setup because ledcSetup() briefly turns on the backlight
@@ -72,14 +78,20 @@ void setup_tft(void) {
   Serial.println("Will immediately charge VSW voltage. If screen is completely bright, with no content, then this is the reason.");
   digitalWrite(LCD_EN_GPIO, LOW);
   #endif
+  displayPoweredAtMs = millis();
+
+  // The display driver takes over chip select in init_tft(), and setup builds the tabs before
+  // that. Until then the pin idles high, so the panel ignores the bus lines that still float.
+  set_lcd_pin_level(LCD_CS_GPIO, HIGH);
+  pinMode(LCD_CS_GPIO, OUTPUT);
 
   // https://github.com/CoretechR/OMOTE/issues/70#issuecomment-2016763291
   // Wait for the LCD driver to power on. LovyanGFX waits a further 72 ms itself before its
-  // first command, Arduino_GFX sends one at once.
-  #if (DISPLAY_DRIVER == 0)
-  delay(5);
-  #else
+  // first command, Arduino_GFX sends one at once. Rev 5 with LovyanGFX waits in init_tft().
+  #if (DISPLAY_DRIVER != 0)
   delay(100);
+  #elif (OMOTE_HARDWARE_REV < 5)
+  delay(5);
   #endif
 }
 

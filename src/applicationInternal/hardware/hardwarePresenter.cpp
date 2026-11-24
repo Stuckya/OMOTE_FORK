@@ -285,6 +285,9 @@ void set_backlightBrightness(uint8_t aBacklightBrightness){
 void init_lvgl_hardware() {
   init_lvgl_HAL();
 };
+void start_display_panel() {
+  start_display_panel_HAL();
+}
 
 // --- WiFi / MQTT ------------------------------------------------------------
 #if (ENABLE_WIFI_AND_MQTT == 1)

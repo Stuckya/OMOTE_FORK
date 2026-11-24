@@ -7,6 +7,9 @@
 
 
 #if(OMOTE_HARDWARE_REV >= 5)
+// Power-on to first command, as it was with tft.init(): 5 ms here, then LovyanGFX's 8 and 64 ms.
+const unsigned long PANEL_POWER_UP_MS = 77;
+
 // LovyanGFX's ILI9341 init list without its 100 ms wait after Display On. The datasheet asks for
 // none there, and the backlight is still off. Rev1-4 keeps the library's list: not tested there.
 struct Panel_ILI9341_NoWaitAfterDisplayOn : public lgfx::Panel_ILI9341 {
@@ -189,7 +192,16 @@ bool touchChipResponds_display_specific() {
 }
 
 void init_tft(void) {
+  #if(OMOTE_HARDWARE_REV >= 5)
+  // There is no reset pin, so LovyanGFX's two reset waits only gave the panel time after power-on.
+  // Setup builds the tabs in that time. What is left of it is waited out here.
+  while (ms_since_display_power_on() < PANEL_POWER_UP_MS) {
+    delay(1);
+  }
+  tft.init_without_reset(true);
+  #else
   tft.init();
+  #endif
   tft.initDMA();
   #ifdef DISPLAY_INVERT_COLORS
   // Sends the controller's INVON (0x21). Before fillScreen(), so the screen is already cleared to

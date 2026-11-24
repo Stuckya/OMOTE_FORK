@@ -136,6 +136,7 @@ void set_backlightBrightness(uint8_t aBacklightBrightness);
 
 // --- lvgl -------------------------------------------------------------------
 void init_lvgl_hardware();
+void start_display_panel();
 
 // --- WiFi / MQTT ------------------------------------------------------------
 #if (ENABLE_WIFI_AND_MQTT == 1)

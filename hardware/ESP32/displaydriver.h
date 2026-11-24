@@ -80,6 +80,7 @@
 // Common to all drivers, defined in displaydriver.cpp --------------------------------------------
 // Backlight PWM and LCD power, has to run before init_tft().
 void setup_tft(void);
+unsigned long ms_since_display_power_on(void);
 // setup_tft configures the backlight channel by hand, and the Arduino ledc calls only
 // reach pins they attached themselves. So the duty is written through the IDF driver.
 void set_backlight_duty(uint32_t duty);
