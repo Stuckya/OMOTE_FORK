@@ -56,45 +56,54 @@ void set_announceWebSocketMessage_cb_HAL(tAnnounceWebSocketMessage_cb pAnnounceW
   thisAnnounceWebSocketMessage_cb = pAnnounceWebSocketMessage_cb;
 }
 
-static void beginSocket(const char* hub_url) {
-  Serial.printf("Initializing WebSocket Client connection to %s\n", hub_url);
-  
-  String urlStr(hub_url);
-  // Find the start of the host (after "ws://" or "wss://")
-  int hostStart = urlStr.indexOf("://");
-  if (hostStart < 0) {
-    Serial.println("Error: Invalid WebSocket Server URL format");
-    return;
-  }
-  hostStart += 3; // Skip past "://"
-  
-  int portStart = urlStr.indexOf(':', hostStart);
-  int pathStart = urlStr.indexOf('/', hostStart);
-  
+struct HubEndpoint {
   String host;
   uint16_t port = 80;
   String path = "/";
-  
+};
+
+static bool parseHubUrl(const char* hub_url, HubEndpoint& hub) {
+  String urlStr(hub_url);
+  int hostStart = urlStr.indexOf("://");
+  if (hostStart < 0) {
+    return false;
+  }
+  hostStart += 3;
+
+  int portStart = urlStr.indexOf(':', hostStart);
+  int pathStart = urlStr.indexOf('/', hostStart);
+
   if (portStart > 0) {
-    host = urlStr.substring(hostStart, portStart);
+    hub.host = urlStr.substring(hostStart, portStart);
     if (pathStart > 0) {
-      port = urlStr.substring(portStart + 1, pathStart).toInt();
-      path = urlStr.substring(pathStart);
+      hub.port = urlStr.substring(portStart + 1, pathStart).toInt();
+      hub.path = urlStr.substring(pathStart);
     } else {
-      port = urlStr.substring(portStart + 1).toInt();
+      hub.port = urlStr.substring(portStart + 1).toInt();
     }
   } else if (pathStart > 0) {
-    host = urlStr.substring(hostStart, pathStart);
-    path = urlStr.substring(pathStart);
+    hub.host = urlStr.substring(hostStart, pathStart);
+    hub.path = urlStr.substring(pathStart);
   } else {
-    host = urlStr.substring(hostStart);
+    hub.host = urlStr.substring(hostStart);
   }
-  
-  Serial.printf("Connecting to host: %s, port: %d, path: %s\n", host.c_str(), port, path.c_str());
+  return true;
+}
+
+static void beginSocket(const char* hub_url) {
+  Serial.printf("Initializing WebSocket Client connection to %s\n", hub_url);
+
+  HubEndpoint hub;
+  if (!parseHubUrl(hub_url, hub)) {
+    Serial.println("Error: Invalid WebSocket Server URL format");
+    return;
+  }
+
+  Serial.printf("Connecting to host: %s, port: %d, path: %s\n", hub.host.c_str(), hub.port, hub.path.c_str());
   
   // Timestamped: a failed first attempt costs a full WEBSOCKET_RECONNECT_INTERVAL_MS before the retry.
   Serial.printf("[%lu ms] WebSocket first connect attempt\n", millis());
-  webSocket.begin(host, port, path);
+  webSocket.begin(hub.host, hub.port, hub.path);
   webSocket.onEvent(onWebSocketEvent);
   
   webSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL_MS);
