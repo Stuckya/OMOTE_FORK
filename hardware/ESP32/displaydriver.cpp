@@ -17,12 +17,17 @@ void set_backlight_duty(uint32_t duty) {
   ledc_update_duty(LEDC_SPEED_MODE, LEDC_CHANNEL_5);
 }
 
+static void route_pin_to_plain_gpio(uint8_t pin) {
+  esp_rom_gpio_connect_out_signal(pin, SIG_GPIO_OUT_IDX, false, false);
+}
+
 void release_backlight_pin(void) {
-  esp_rom_gpio_connect_out_signal(LCD_BL_GPIO, SIG_GPIO_OUT_IDX, false, false);
+  route_pin_to_plain_gpio(LCD_BL_GPIO);
 }
 
 void set_lcd_pin_level(uint8_t pin, uint8_t level) {
   gpio_set_level((gpio_num_t)pin, level);
+  route_pin_to_plain_gpio(pin);
 }
 
 static unsigned long displayPoweredAtMs = 0;

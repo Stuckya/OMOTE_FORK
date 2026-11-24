@@ -86,6 +86,8 @@ unsigned long ms_since_display_power_on(void);
 void set_backlight_duty(uint32_t duty);
 // digitalWrite ignores a pin that pinMode has not set up. That is every pin the display
 // driver owns, and any pin that needs its level before it becomes an output.
+// The display driver also routes bus pins to its peripheral, which goes on driving them.
+// So the pin goes back to plain GPIO, or the level set here never reaches it.
 void set_lcd_pin_level(uint8_t pin, uint8_t level);
 // pinMode(INPUT) leaves a routed peripheral signal on the pin. So the backlight pin goes
 // back to plain GPIO first, or sleep holds it at whatever level the PWM was driving.
