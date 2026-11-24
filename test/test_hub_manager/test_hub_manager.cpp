@@ -49,7 +49,7 @@ public:
     return ready;
   }
 
-  bool leaveForConnect(const omote_RemoteEvent& event) {
+  bool leaveForConnect(const omote_RemoteEvent& event) override {
     if (!takesAnEventForConnect) {
       return false;
     }
@@ -57,7 +57,7 @@ public:
     return true;
   }
 
-  bool sentOnConnect() {
+  bool sentOnConnect() override {
     return sentTheEventOnConnect;
   }
 
