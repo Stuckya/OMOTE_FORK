@@ -301,6 +301,8 @@ static omote_CommandResult makeWorstCaseSingleDeviceStateSync() {
   md.has_cover = true;
   md.cover.width = 0xFFFFFFFF;
   md.cover.height = 0xFFFFFFFF;
+  md.cover.art = omote_CoverArt_COVER_ART_READY;
+  memset(md.cover.url, 'U', sizeof(md.cover.url) - 1);
   return result;
 }
 
