@@ -338,6 +338,8 @@ bool publishMQTTMessageProto_HAL(const char *topic, const uint8_t* payload, size
 }
 
 void wifi_shutdown_HAL() {
+  // This disconnect is deliberate. Left registered, the handler starts a new join while WiFi is being turned off.
+  WiFi.removeEvent(WiFiEvent);
   WiFi.disconnect();
   WiFi.mode(WIFI_OFF);
 }
