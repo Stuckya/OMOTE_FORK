@@ -4,8 +4,8 @@
 #include <hubNowPlaying.h>
 #include "applicationInternal/hardware/hardwarePresenter.h"
 #include "applicationInternal/gui/guiBase.h"
-#include "applicationInternal/gui/guiMemoryOptimizer.h"
 #include "applicationInternal/gui/guiRegistry.h"
+#include "applicationInternal/gui/guiShownListeners.h"
 #include "applicationInternal/omote_log.h"
 #include "devices/mediaPlayer/device_appleTV/gui_appleTV.h"
 
@@ -125,6 +125,7 @@ static lv_obj_t* idleView = nullptr;
 static CoverView coverView = {};
 static TextForwardView textForwardView = {};
 static lv_timer_t* tickTimer = nullptr;
+static bool tabIsShown = false;
 
 static void render_now_playing();
 
@@ -297,6 +298,7 @@ void create_tab_content_appleTV(lv_obj_t* tab) {
   create_cover_view(tab);
   create_text_forward_view(tab);
   tickTimer = lv_timer_create(tick_cb, TICK_MS, nullptr);
+  tabIsShown = false;
 
   render_now_playing();
 }
@@ -395,7 +397,6 @@ static void render_now_playing() {
     render_text_forward_view(now);
   }
 
-  const bool tabIsShown = gui_memoryOptimizer_getActiveGUIname() == tabName_appleTV;
   if (nowPlaying.ticks() && tabIsShown) {
     lv_timer_resume(tickTimer);
   } else {
@@ -408,7 +409,13 @@ void show_appleTV_now_playing(const omote_DeviceState& snapshot) {
   render_now_playing();
 }
 
+static void on_shown_gui(const std::string& shownGuiName) {
+  tabIsShown = shownGuiName == tabName_appleTV;
+  render_now_playing();
+}
+
 void notify_tab_before_delete_appleTV(void) {
+  tabIsShown = false;
   if (tickTimer != nullptr) {
     lv_timer_del(tickTimer);
     tickTimer = nullptr;
@@ -420,4 +427,5 @@ void notify_tab_before_delete_appleTV(void) {
 
 void register_gui_appleTV(void){
   register_gui(std::string(tabName_appleTV), & create_tab_content_appleTV, & notify_tab_before_delete_appleTV);
+  Gui::registerShownGuiListener(on_shown_gui);
 }
