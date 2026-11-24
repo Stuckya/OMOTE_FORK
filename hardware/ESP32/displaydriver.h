@@ -112,6 +112,8 @@ void swap_rgb565_inplace(lv_color_t *pixels, uint32_t count);
 
 // Provided by the selected displaydriver<n>_*.cpp ------------------------------------------------
 void init_tft(void);
+// Sends Display On where init_tft() leaves it out, so that the first frame can be drawn before.
+void turn_on_tft(void);
 void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p);
 void my_touchpad_read_display_specific(lv_indev_drv_t *indev_driver, lv_indev_data_t *data);
 void draw_touchpoint(uint16_t x, uint16_t y);

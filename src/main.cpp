@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
   // Initialises tft and touch. This has to come before any other i2c devices are initialized, otherwise the i2c bus will not be powered
   start_display_panel();
   #if HUB_LINK_STARTS_DURING_DISPLAY_INIT
-  // The hub is usually connected by now, so the key that woke the remote leaves before the GUI is finished.
+  // The key that woke the remote is handled before the first frame. Its command leaves as soon as the hub is connected.
   init_hub();
   init_keys();
   keypad_handleWakeKey();
@@ -193,6 +193,8 @@ int main(int argc, char *argv[]) {
   init_gui_bars();
   setLabelActiveScene();
   gui_loop(); // Run the LVGL UI once before the loop takes over
+  // The panel has shown nothing so far. From here it shows the first frame.
+  turn_display_on();
   
   // Power Pin and battery monitor definition
   init_battery();

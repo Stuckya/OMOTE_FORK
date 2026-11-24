@@ -115,4 +115,6 @@ void init_tft(void) {
   #endif
   agfx->fillScreen(RGB565_BLACK);
 }
+// begin() has sent Display On already.
+void turn_on_tft(void) {}
 #endif // DISPLAY_DRIVER == 2

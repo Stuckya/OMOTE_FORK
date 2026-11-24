@@ -60,3 +60,7 @@ void start_display_panel_HAL() {
   init_tft();
   setup_wire();
 }
+
+void turn_display_on_HAL() {
+  turn_on_tft();
+}

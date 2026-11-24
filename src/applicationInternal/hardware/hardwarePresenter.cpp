@@ -288,6 +288,9 @@ void init_lvgl_hardware() {
 void start_display_panel() {
   start_display_panel_HAL();
 }
+void turn_display_on() {
+  turn_display_on_HAL();
+}
 
 // --- WiFi / MQTT ------------------------------------------------------------
 #if (ENABLE_WIFI_AND_MQTT == 1)
