@@ -374,12 +374,12 @@ bool publishWebSocketMessage(const uint8_t* data, size_t len) {
   return publishWebSocketMessage_HAL(data, len);
 }
 
-bool leave_websocket_message_for_connect(const uint8_t* data, size_t len) {
-  return leave_websocket_message_for_connect_HAL(data, len);
+bool send_websocket_message_after_connect(const uint8_t* data, size_t len) {
+  return send_websocket_message_after_connect_HAL(data, len);
 }
 
-bool websocket_message_left_for_connect_was_sent() {
-  return websocket_message_left_for_connect_was_sent_HAL();
+bool websocket_message_was_sent_after_connect() {
+  return websocket_message_was_sent_after_connect_HAL();
 }
 
 void websocket_shutdown() {

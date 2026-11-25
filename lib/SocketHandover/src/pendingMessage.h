@@ -7,12 +7,12 @@
 
 // While a background task connects the socket, the main loop leaves one message here, and that
 // task sends it the moment the socket opens. Single use: the socket is lent once per boot.
-class MessageLeftForConnect {
+class PendingMessage {
 public:
   static const size_t MAX_BYTES = 1024;
 
   // Main loop. The caller keeps its own copy and asks wasSent() once it holds the socket again.
-  bool leave(const uint8_t* data, size_t len) {
+  bool set(const uint8_t* data, size_t len) {
     State empty = State::Empty;
     if (len > MAX_BYTES || !state_.compare_exchange_strong(empty, State::Filling)) {
       return false;

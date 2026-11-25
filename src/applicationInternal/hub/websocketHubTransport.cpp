@@ -82,14 +82,14 @@ bool WebSocketHubTransport::isReady() {
   return websocket_is_connected();
 }
 
-bool WebSocketHubTransport::leaveForConnect(const omote_RemoteEvent& event) {
+bool WebSocketHubTransport::sendMessageAfterConnect(const omote_RemoteEvent& event) {
   uint8_t buffer[1024];
   const size_t encoded_size = Hub::ProtoCodec::encodeRemoteEvent(event, buffer, sizeof(buffer));
-  return encoded_size > 0 && leave_websocket_message_for_connect(buffer, encoded_size);
+  return encoded_size > 0 && send_websocket_message_after_connect(buffer, encoded_size);
 }
 
-bool WebSocketHubTransport::sentOnConnect() {
-  return websocket_message_left_for_connect_was_sent();
+bool WebSocketHubTransport::sentAfterConnect() {
+  return websocket_message_was_sent_after_connect();
 }
 
 unsigned long WebSocketHubTransport::wakeQueueTtlMs() const {

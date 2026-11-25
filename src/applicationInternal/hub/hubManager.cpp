@@ -230,17 +230,17 @@ bool HubManager::enqueueEvent(const omote_RemoteEvent& event) {
 
   omote_log_i("Queued event, ttl=%lu\n", ttl);
   if (becomesHeadAtWake) {
-    headIsLeftForConnect = activeTransport->leaveForConnect(event);
+    headSendsAfterConnect = activeTransport->sendMessageAfterConnect(event);
   }
   return true;
 }
 
-void HubManager::dropHeadIfSentOnConnect() {
-  if (!headIsLeftForConnect) {
+void HubManager::dropHeadIfSentAfterConnect() {
+  if (!headSendsAfterConnect) {
     return;
   }
-  headIsLeftForConnect = false;
-  if (!activeTransport->sentOnConnect()) {
+  headSendsAfterConnect = false;
+  if (!activeTransport->sentAfterConnect()) {
     return;
   }
   noteTransmitted(outboundQueue.peek()->event);
@@ -272,7 +272,7 @@ unsigned long HubManager::currentQueueTtlMs() const {
 
 void HubManager::flushQueue() {
   outboundQueue.finishWakeWindow();
-  dropHeadIfSentOnConnect();
+  dropHeadIfSentAfterConnect();
 
   uint8_t flushed = 0;
   while (outboundQueue.hasPendingEvents()) {
@@ -301,7 +301,7 @@ void HubManager::flushQueue() {
 
 void HubManager::clearQueue() {
   outboundQueue.clearEvents();
-  headIsLeftForConnect = false;
+  headSendsAfterConnect = false;
 }
 
 void HubManager::setMessageHandler(std::function<void(const omote_CommandResult&)> handler) {

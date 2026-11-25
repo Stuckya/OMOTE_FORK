@@ -3,7 +3,7 @@
 #include <atomic>
 #include <string>
 #include <socketHandover.h>
-#include <messageLeftForConnect.h>
+#include <pendingMessage.h>
 #include <firstContact.h>
 #include <esp_netif.h>
 #include <esp_netif_net_stack.h>
@@ -20,7 +20,7 @@ std::atomic<bool> isConnected{false};
 
 namespace {
 SocketHandover socketHandover;
-MessageLeftForConnect messageLeftForConnect;
+PendingMessage pendingMessage;
 std::string hubUrl;
 // Read and written only by the task that holds the socket.
 bool socketBegun = false;
@@ -194,10 +194,10 @@ const UBaseType_t BACKGROUND_CONNECT_PRIORITY = 1;
 // The connect was measured at about 3 kB of stack.
 const uint32_t BACKGROUND_CONNECT_STACK_BYTES = 8192;
 
-static void sendMessageLeftForConnect() {
-  messageLeftForConnect.sendIfWaiting([](const uint8_t* data, size_t len) {
+static void sendPendingMessage() {
+  pendingMessage.sendIfWaiting([](const uint8_t* data, size_t len) {
     const bool sent = webSocket.sendBIN(data, len);
-    Serial.printf("[%lu ms] Message left for the connect %s\n", millis(), sent ? "sent" : "not sent");
+    Serial.printf("[%lu ms] Pending message %s\n", millis(), sent ? "sent" : "not sent");
     return sent;
   });
 }
@@ -211,7 +211,7 @@ static void connectInBackground(void*) {
     vTaskDelay(1);
   }
   if (isConnected) {
-    sendMessageLeftForConnect();
+    sendPendingMessage();
   }
   socketHandover.giveBack();
   vTaskDelete(NULL);
@@ -266,12 +266,12 @@ bool publishWebSocketMessage_HAL(const uint8_t* data, size_t len) {
   return result;
 }
 
-bool leave_websocket_message_for_connect_HAL(const uint8_t* data, size_t len) {
-  return messageLeftForConnect.leave(data, len);
+bool send_websocket_message_after_connect_HAL(const uint8_t* data, size_t len) {
+  return pendingMessage.set(data, len);
 }
 
-bool websocket_message_left_for_connect_was_sent_HAL() {
-  return messageLeftForConnect.wasSent();
+bool websocket_message_was_sent_after_connect_HAL() {
+  return pendingMessage.wasSent();
 }
 
 static void takeSocketBackFromBackground() {

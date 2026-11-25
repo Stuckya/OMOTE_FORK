@@ -131,13 +131,13 @@ bool publishWebSocketMessage_HAL(const uint8_t* data, size_t len) {
 }
 
 // The simulator connects on the main loop, so no other task could send the message.
-bool leave_websocket_message_for_connect_HAL(const uint8_t* data, size_t len) {
+bool send_websocket_message_after_connect_HAL(const uint8_t* data, size_t len) {
     (void)data;
     (void)len;
     return false;
 }
 
-bool websocket_message_left_for_connect_was_sent_HAL() {
+bool websocket_message_was_sent_after_connect_HAL() {
     return false;
 }
 

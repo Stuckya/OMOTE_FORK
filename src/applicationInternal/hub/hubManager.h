@@ -28,7 +28,7 @@ private:
 
   EventTransmittedCallback eventTransmittedCallback = nullptr;
   HubOutboundQueue outboundQueue;
-  bool headIsLeftForConnect = false;
+  bool headSendsAfterConnect = false;
 
   std::function<void(const omote_CommandResult&)> messageHandler;
 
@@ -46,7 +46,7 @@ private:
   void noteTransmitted(const omote_RemoteEvent& event);
   unsigned long currentQueueTtlMs() const;
   bool enqueueEvent(const omote_RemoteEvent& event);
-  void dropHeadIfSentOnConnect();
+  void dropHeadIfSentAfterConnect();
   void flushQueue();
   void clearQueue();
 
