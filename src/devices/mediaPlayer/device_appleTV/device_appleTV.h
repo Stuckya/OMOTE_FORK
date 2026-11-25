@@ -17,5 +17,6 @@ extern uint16_t APPLETV_LEFT;
 extern uint16_t APPLETV_SELECT;
 extern uint16_t APPLETV_MENU;
 extern uint16_t APPLETV_HOME;
+extern uint16_t APPLETV_INFO;
 
 void register_device_appleTV();

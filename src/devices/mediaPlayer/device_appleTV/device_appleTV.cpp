@@ -24,6 +24,7 @@ uint16_t APPLETV_LEFT;
 uint16_t APPLETV_SELECT;
 uint16_t APPLETV_MENU;
 uint16_t APPLETV_HOME;
+uint16_t APPLETV_INFO;
 
 void register_device_appleTV() {
 
@@ -43,6 +44,7 @@ void register_device_appleTV() {
     register_hub_command(&APPLETV_SELECT, "APPLE_TV", "SELECT");
     register_hub_command(&APPLETV_MENU, "APPLE_TV", "MENU");
     register_hub_command(&APPLETV_HOME, "APPLE_TV", "HOME");
+    register_hub_command(&APPLETV_INFO, "APPLE_TV", "INFO");
     register_hub_command(&APPLETV_GUI_EVENT_USER_DATA, "APPLE_TV", "GUI_EVENT");
   #else
     // Register IR commands for Apple TV when Hub is not enabled
