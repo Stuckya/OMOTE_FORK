@@ -59,12 +59,11 @@ static const lv_coord_t SIDE_PAD = 16;
 static const lv_coord_t TEXT_FORWARD_PAD = 18;
 static const lv_coord_t BOTTOM_PAD = 8;
 static const lv_coord_t COVER_RADIUS = 11;
-static const lv_coord_t CHIP_INSET = 7;
 static const lv_coord_t PROGRESS_HEIGHT = 3;
 static const lv_coord_t PROGRESS_RADIUS = 2;
+static const lv_coord_t STATE_ICON_GAP = 4;
 static const uint32_t TICK_MS = 1000;
 static const int PROGRESS_RANGE = 1000;
-static const lv_opa_t CHIP_OPA = 107;
 static const lv_opa_t HAIRLINE_OPA = 18;
 
 static const uint32_t COLOR_TEXT = 0xFFFFFF;
@@ -97,6 +96,7 @@ static HubNowPlaying nowPlaying;
 struct ProgressRow {
   lv_obj_t* row;
   lv_obj_t* bar;
+  lv_obj_t* stateIcon;
   lv_obj_t* elapsed;
   lv_obj_t* duration;
 };
@@ -105,8 +105,6 @@ struct CoverView {
   lv_obj_t* root;
   lv_obj_t* cover;
   lv_obj_t* glyph;
-  lv_obj_t* typeChip;
-  lv_obj_t* stateChip;
   lv_obj_t* title;
   lv_obj_t* subtitle;
   lv_obj_t* caption;
@@ -154,17 +152,6 @@ static lv_obj_t* create_line_label(lv_obj_t* parent, const lv_font_t* font, uint
   return label;
 }
 
-static lv_obj_t* create_chip(lv_obj_t* parent, lv_align_t align, lv_coord_t yInset) {
-  lv_obj_t* chip = create_label(parent, &lv_font_montserrat_10, COLOR_TEXT);
-  lv_obj_set_style_bg_color(chip, lv_color_black(), LV_PART_MAIN);
-  lv_obj_set_style_bg_opa(chip, CHIP_OPA, LV_PART_MAIN);
-  lv_obj_set_style_radius(chip, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-  lv_obj_set_style_pad_hor(chip, 6, LV_PART_MAIN);
-  lv_obj_set_style_pad_ver(chip, 3, LV_PART_MAIN);
-  lv_obj_align(chip, align, CHIP_INSET, yInset);
-  return chip;
-}
-
 static ProgressRow create_progress_row(lv_obj_t* parent, lv_coord_t width) {
   ProgressRow progress;
   progress.row = create_plain_box(parent);
@@ -182,8 +169,15 @@ static ProgressRow create_progress_row(lv_obj_t* parent, lv_coord_t width) {
   lv_obj_set_style_bg_opa(progress.bar, LV_OPA_COVER, LV_PART_MAIN);
   lv_obj_set_style_bg_opa(progress.bar, LV_OPA_COVER, LV_PART_INDICATOR);
 
-  progress.elapsed = create_label(progress.row, &lv_font_montserrat_12, COLOR_TEXT_TERTIARY);
-  lv_obj_align(progress.elapsed, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+  // Flex skips hidden children, so the elapsed time sits flush left whenever the icon is hidden.
+  lv_obj_t* lead = create_plain_box(progress.row);
+  lv_obj_set_size(lead, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_align(lead, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+  lv_obj_set_flex_flow(lead, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(lead, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_column(lead, STATE_ICON_GAP, LV_PART_MAIN);
+  progress.stateIcon = create_label(lead, &lv_font_montserrat_12, COLOR_TEXT_SECONDARY);
+  progress.elapsed = create_label(lead, &lv_font_montserrat_12, COLOR_TEXT_TERTIARY);
   progress.duration = create_label(progress.row, &lv_font_montserrat_12, COLOR_TEXT_TERTIARY);
   lv_obj_align(progress.duration, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
   return progress;
@@ -227,8 +221,6 @@ static void create_cover_view(lv_obj_t* tab) {
 
   coverView.glyph = create_label(coverView.cover, &lv_font_montserrat_24, COLOR_PLACEHOLDER_GLYPH);
   lv_obj_center(coverView.glyph);
-  coverView.typeChip = create_chip(coverView.cover, LV_ALIGN_TOP_LEFT, CHIP_INSET);
-  coverView.stateChip = create_chip(coverView.cover, LV_ALIGN_BOTTOM_LEFT, -CHIP_INSET);
 
   lv_obj_t* lines = create_plain_box(coverView.root);
   lv_obj_set_width(lines, textWidth);
@@ -318,13 +310,29 @@ static const char* state_text() {
   return "";
 }
 
+static const char* state_symbol() {
+  switch (nowPlaying.state()) {
+    case HubNowPlaying::State::PLAYING: return LV_SYMBOL_PLAY;
+    case HubNowPlaying::State::PAUSED:  return LV_SYMBOL_PAUSE;
+    case HubNowPlaying::State::STOPPED: return LV_SYMBOL_STOP;
+    case HubNowPlaying::State::LOADING:
+    case HubNowPlaying::State::SEEKING:
+    case HubNowPlaying::State::NONE:    return "";
+  }
+  return "";
+}
+
 static void set_text_if_changed(lv_obj_t* label, const std::string& text) {
   if (text != lv_label_get_text(label)) {
     lv_label_set_text(label, text.c_str());
   }
 }
 
+// Clearing LV_OBJ_FLAG_HIDDEN invalidates the object even when it is already shown, so skip no-ops.
 static void set_hidden(lv_obj_t* obj, bool hidden) {
+  if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN) == hidden) {
+    return;
+  }
   if (hidden) {
     lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
   } else {
@@ -338,8 +346,12 @@ static void set_line(lv_obj_t* label, const std::string& text) {
 }
 
 static void render_progress(const ProgressRow& progress, time_t now) {
-  set_hidden(progress.row, !nowPlaying.hasProgress());
-  if (!nowPlaying.hasProgress()) {
+  set_line(progress.stateIcon, state_symbol());
+  const bool hasProgress = nowPlaying.hasProgress();
+  set_hidden(progress.bar, !hasProgress);
+  set_hidden(progress.elapsed, !hasProgress);
+  set_hidden(progress.duration, !hasProgress);
+  if (!hasProgress) {
     return;
   }
   lv_bar_set_value(progress.bar, nowPlaying.progressPermille(now), LV_ANIM_OFF);
@@ -351,9 +363,6 @@ static void render_cover_view(time_t now) {
   const MediaTypeLook look = lookFor(nowPlaying.mediaType());
   lv_obj_set_size(coverView.cover, nowPlaying.coverWidth(), nowPlaying.coverHeight());
   set_text_if_changed(coverView.glyph, look.glyph);
-  set_text_if_changed(coverView.typeChip, std::string(look.glyph) + " " + look.label);
-  set_text_if_changed(coverView.stateChip, state_text());
-  set_hidden(coverView.stateChip, nowPlaying.state() == HubNowPlaying::State::NONE);
   set_line(coverView.title, nowPlaying.title());
   set_line(coverView.subtitle, nowPlaying.subtitle());
   set_line(coverView.caption, nowPlaying.caption());
