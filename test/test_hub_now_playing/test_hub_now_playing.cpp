@@ -205,6 +205,37 @@ void test_elapsed_and_duration_text_follow_the_clock() {
   TEST_ASSERT_EQUAL_STRING("4:04", nowPlaying.durationText().c_str());
 }
 
+void test_an_unknown_duration_reads_as_dashes() {
+  HubNowPlaying nowPlaying = observed(makeTimed("playing", 124, 0));
+
+  TEST_ASSERT_EQUAL_STRING("--:--", nowPlaying.durationText().c_str());
+}
+
+void test_an_unknown_duration_still_shows_a_known_position() {
+  HubNowPlaying nowPlaying = observed(makeTimed("paused", 124, 0));
+
+  TEST_ASSERT_EQUAL_STRING("2:04", nowPlaying.elapsedText(HUB_READ_AT).c_str());
+}
+
+void test_an_unknown_position_and_duration_read_as_dashes() {
+  HubNowPlaying nowPlaying = observed(makeTimed("playing", 0, 0));
+
+  TEST_ASSERT_EQUAL_STRING("--:--", nowPlaying.elapsedText(HUB_READ_AT).c_str());
+  TEST_ASSERT_EQUAL_STRING("--:--", nowPlaying.durationText().c_str());
+}
+
+void test_a_known_duration_shows_the_start_of_playback() {
+  HubNowPlaying nowPlaying = observed(makeTimed("playing", 0, 244));
+
+  TEST_ASSERT_EQUAL_STRING("0:00", nowPlaying.elapsedText(HUB_READ_AT).c_str());
+}
+
+void test_an_unknown_duration_leaves_the_bar_empty() {
+  HubNowPlaying nowPlaying = observed(makeTimed("playing", 124, 0));
+
+  TEST_ASSERT_EQUAL_INT(0, nowPlaying.progressPermille(HUB_READ_AT + 10));
+}
+
 void test_media_type_follows_the_hub() {
   omote_DeviceState snapshot = makePlayback("Midnight City", "playing");
   snapshot.media_player.playback.media_type = omote_MediaType_MEDIA_TYPE_MUSIC;
@@ -244,6 +275,11 @@ int main() {
   RUN_TEST(test_progress_survives_values_too_large_for_32_bit_math);
   RUN_TEST(test_times_read_as_minutes_or_hours);
   RUN_TEST(test_elapsed_and_duration_text_follow_the_clock);
+  RUN_TEST(test_an_unknown_duration_reads_as_dashes);
+  RUN_TEST(test_an_unknown_duration_still_shows_a_known_position);
+  RUN_TEST(test_an_unknown_position_and_duration_read_as_dashes);
+  RUN_TEST(test_a_known_duration_shows_the_start_of_playback);
+  RUN_TEST(test_an_unknown_duration_leaves_the_bar_empty);
   RUN_TEST(test_media_type_follows_the_hub);
   RUN_TEST(test_art_needs_an_ip_link_and_memory_for_a_cover);
   return UNITY_END();
