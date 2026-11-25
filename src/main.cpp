@@ -64,8 +64,8 @@
 
 // With the WebSocket transport, WiFi and the hub socket come up on their own task while the display initialises.
 #define HUB_LINK_STARTS_DURING_DISPLAY_INIT (ENABLE_WIFI_AND_MQTT == 1 && ENABLE_HUB_COMMUNICATION == 3)
-// Rev 5 builds the tabs while its panel powers up. Rev 1 to 4 builds them after the wake key: its
-// panel init gets no shorter, and its keypad loses a key that is released before the first read.
+// Rev 5 builds the tabs while its panel powers up. Rev 1 to 4 builds them after the wake key:
+// its keypad loses a key that is released before the first read.
 #define TABS_ARE_BUILT_DURING_PANEL_POWER_UP (OMOTE_HARDWARE_REV >= 5)
 
 #if (ENABLE_HUB_COMMUNICATION > 0)

@@ -91,12 +91,10 @@ void setup_tft(void) {
   pinMode(LCD_CS_GPIO, OUTPUT);
 
   // https://github.com/CoretechR/OMOTE/issues/70#issuecomment-2016763291
-  // Wait for the LCD driver to power on. LovyanGFX waits a further 72 ms itself before its
-  // first command, Arduino_GFX sends one at once. Rev 5 with LovyanGFX waits in init_tft().
+  // Wait for the LCD driver to power on. Arduino_GFX sends its first command at once.
+  // LovyanGFX waits in init_tft().
   #if (DISPLAY_DRIVER != 0)
   delay(100);
-  #elif (OMOTE_HARDWARE_REV < 5)
-  delay(5);
   #endif
 }
 
