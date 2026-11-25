@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include "applicationInternal/commandHandler.h"
-#include "applicationInternal/commandsBeforeGui.h"
+#include "applicationInternal/startupCommandQueue.h"
 #include "applicationInternal/scenes/sceneHandler.h"
 #include "applicationInternal/hardware/hardwarePresenter.h"
 #include "applicationInternal/omote_log.h"
@@ -28,7 +28,8 @@
 // when the hub runs with publish_device_state on.
 static HubDeviceStateCache hubDeviceStateCache;
 
-static CommandsBeforeGui commandsBeforeGui;
+static StartupCommandQueue pendingCommands;
+static bool guiReady = false;
 
 uint16_t COMMAND_UNKNOWN;
 
@@ -341,7 +342,8 @@ void executeCommand(const CommandExecutionParams& params) {
     }
     
     commandData cmdData = commands.at(params.commandId);
-    if (!commandsBeforeGui.mayRunNow(params, cmdData)) {
+    if (!guiReady && requiresGui(cmdData)) {
+      pendingCommands.push(params);
       return;
     }
     executeCommandWithData(params, cmdData);
@@ -352,7 +354,8 @@ void executeCommand(const CommandExecutionParams& params) {
 }
 
 void runCommandsThatWaitedForGui() {
-  for (const CommandExecutionParams& params : commandsBeforeGui.guiExists()) {
+  guiReady = true;
+  for (const CommandExecutionParams& params : pendingCommands.takeAll()) {
     executeCommand(params);
   }
 }
