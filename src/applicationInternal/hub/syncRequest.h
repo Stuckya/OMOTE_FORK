@@ -10,7 +10,7 @@ namespace Hub {
 // rich single-device StateSync response (one DeviceState with volume + full
 // media metadata + envelope). Proven against the encoder by test_hub_manager's
 // budget-proof test; bump only alongside that test if the proto/.options grow.
-static const size_t STATE_SYNC_SINGLE_DEVICE_BUDGET = 384;
+static const size_t STATE_SYNC_SINGLE_DEVICE_BUDGET = 451;
 
 // The request shape syncState() asks the hub for, chosen from the transport's
 // usable inbound budget. A transport that cannot carry a shape requests less,

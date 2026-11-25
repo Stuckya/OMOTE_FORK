@@ -28,6 +28,7 @@ public:
   View view(bool fetchesArtwork) const;
   uint32_t coverWidth() const;
   uint32_t coverHeight() const;
+  const omote_Cover& cover() const;
 
   // False when the hub does not know the duration.
   bool hasProgress() const;

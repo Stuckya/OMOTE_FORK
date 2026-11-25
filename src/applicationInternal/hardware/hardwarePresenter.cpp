@@ -405,3 +405,15 @@ const char* get_websocketHubURL() {
 }
 
 #endif
+
+bool startHttpGet(const char* url, uint8_t* body, size_t expectedLength, HttpGetHandover* handover) {
+  return start_http_get_HAL(url, body, expectedLength, handover);
+}
+
+uint8_t* allocateLargeBuffer(size_t bytes) {
+  return allocate_large_buffer_HAL(bytes);
+}
+
+void freeLargeBuffer(uint8_t* buffer) {
+  free_large_buffer_HAL(buffer);
+}

@@ -1,6 +1,7 @@
 #include <lvgl.h>
 #include <ctime>
 #include <string>
+#include <hubCoverArt.h>
 #include <hubNowPlaying.h>
 #include "applicationInternal/hardware/hardwarePresenter.h"
 #include "applicationInternal/gui/guiBase.h"
@@ -63,6 +64,8 @@ static const lv_coord_t PROGRESS_HEIGHT = 3;
 static const lv_coord_t PROGRESS_RADIUS = 2;
 static const lv_coord_t STATE_ICON_GAP = 4;
 static const uint32_t TICK_MS = 1000;
+static const uint32_t ART_POLL_MS = 50;
+static const uint32_t ART_FADE_MS = 200;
 static const int PROGRESS_RANGE = 1000;
 static const lv_opa_t HAIRLINE_OPA = 18;
 
@@ -90,8 +93,14 @@ static MediaTypeLook lookFor(omote_MediaType mediaType) {
 }
 
 // The tab is deleted and rebuilt as the user swipes, so the latest playback
-// lives here and each rebuild draws from it.
+// and the fetched art live here and each rebuild draws from them.
 static HubNowPlaying nowPlaying;
+static HubCoverArt coverArt;
+static HttpGetHandover artGet;
+static uint8_t* shownPixels = nullptr;
+static uint8_t* fetchingPixels = nullptr;
+static lv_img_dsc_t shownArt = {};
+static lv_img_dsc_t fetchingArt = {};
 
 struct ProgressRow {
   lv_obj_t* row;
@@ -104,6 +113,7 @@ struct ProgressRow {
 struct CoverView {
   lv_obj_t* root;
   lv_obj_t* cover;
+  lv_obj_t* art;
   lv_obj_t* glyph;
   lv_obj_t* title;
   lv_obj_t* subtitle;
@@ -126,6 +136,8 @@ static CoverView coverView = {};
 static TextForwardView textForwardView = {};
 static lv_timer_t* tickTimer = nullptr;
 static bool tabIsShown = false;
+static lv_timer_t* artPollTimer = nullptr;
+static bool artIsShown = false;
 
 static void render_now_playing();
 
@@ -219,6 +231,8 @@ static void create_cover_view(lv_obj_t* tab) {
   lv_obj_set_style_bg_color(coverView.cover, lv_color_hex(COLOR_PLACEHOLDER_TILE), LV_PART_MAIN);
   lv_obj_set_style_bg_opa(coverView.cover, LV_OPA_COVER, LV_PART_MAIN);
 
+  coverView.art = lv_img_create(coverView.cover);
+  lv_obj_center(coverView.art);
   coverView.glyph = create_label(coverView.cover, &lv_font_montserrat_24, COLOR_PLACEHOLDER_GLYPH);
   lv_obj_center(coverView.glyph);
 
@@ -285,6 +299,56 @@ static void tick_cb(lv_timer_t*) {
   render_now_playing();
 }
 
+static lv_img_dsc_t rgb565Image(const uint8_t* pixels, uint32_t width, uint32_t height) {
+  lv_img_dsc_t image = {};
+  image.header.cf = LV_IMG_CF_TRUE_COLOR;
+  image.header.w = width;
+  image.header.h = height;
+  image.data_size = width * height * LV_COLOR_SIZE / 8;
+  image.data = pixels;
+  return image;
+}
+
+static void take_fetched_art() {
+  bool ok = false;
+  if (!artGet.take(ok)) {
+    return;
+  }
+  coverArt.fetchFinished(ok);
+  if (!ok) {
+    freeLargeBuffer(fetchingPixels);
+    fetchingPixels = nullptr;
+    return;
+  }
+  uint8_t* replaced = shownPixels;
+  shownPixels = fetchingPixels;
+  shownArt = fetchingArt;
+  fetchingPixels = nullptr;
+  if (coverView.art != nullptr) {
+    lv_img_cache_invalidate_src(&shownArt);
+    lv_img_set_src(coverView.art, &shownArt);
+  }
+  freeLargeBuffer(replaced);
+}
+
+static void start_art_fetch() {
+  fetchingPixels = allocateLargeBuffer(coverArt.expectedBytes());
+  coverArt.fetchStarted();
+  if (fetchingPixels == nullptr) {
+    coverArt.fetchFinished(false);
+    return;
+  }
+  fetchingArt = rgb565Image(fetchingPixels, nowPlaying.coverWidth(), nowPlaying.coverHeight());
+  startHttpGet(coverArt.url().c_str(), fetchingPixels, coverArt.expectedBytes(), &artGet);
+}
+
+static void art_poll_cb(lv_timer_t*) {
+  if (artGet.inFlight()) {
+    return;
+  }
+  render_now_playing();
+}
+
 void create_tab_content_appleTV(lv_obj_t* tab) {
   lv_obj_clear_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_style_pad_all(tab, 0, LV_PART_MAIN);
@@ -294,6 +358,8 @@ void create_tab_content_appleTV(lv_obj_t* tab) {
   create_text_forward_view(tab);
   tickTimer = lv_timer_create(tick_cb, TICK_MS, nullptr);
   tabIsShown = false;
+  artPollTimer = lv_timer_create(art_poll_cb, ART_POLL_MS, nullptr);
+  artIsShown = false;
 
   render_now_playing();
 }
@@ -353,9 +419,22 @@ static void render_progress(const ProgressRow& progress, time_t now) {
   set_text_if_changed(progress.duration, nowPlaying.durationText());
 }
 
+static void render_cover_fill() {
+  const HubCoverArt::Fill fill = coverArt.fill();
+  const bool showArt = fill == HubCoverArt::Fill::ART && shownPixels != nullptr;
+  set_hidden(coverView.glyph, fill != HubCoverArt::Fill::GLYPH);
+  set_hidden(coverView.art, !showArt);
+  if (showArt && !artIsShown) {
+    lv_img_set_src(coverView.art, &shownArt);
+    lv_obj_fade_in(coverView.art, ART_FADE_MS, 0);
+  }
+  artIsShown = showArt;
+}
+
 static void render_cover_view(time_t now) {
   const MediaTypeLook look = lookFor(nowPlaying.mediaType());
   lv_obj_set_size(coverView.cover, nowPlaying.coverWidth(), nowPlaying.coverHeight());
+  render_cover_fill();
   set_text_if_changed(coverView.glyph, look.glyph);
   set_line(coverView.title, nowPlaying.title());
   set_line(coverView.subtitle, nowPlaying.subtitle());
@@ -380,6 +459,12 @@ static void render_now_playing() {
     return;
   }
 
+  coverArt.observe(nowPlaying.cover());
+  take_fetched_art();
+  if (FETCHES_ARTWORK && tabIsShown && coverArt.shouldFetch()) {
+    start_art_fetch();
+  }
+
   const HubNowPlaying::View view = nowPlaying.view(FETCHES_ARTWORK);
   const time_t now = time(nullptr);
   set_hidden(idleView, view != HubNowPlaying::View::IDLE);
@@ -395,6 +480,11 @@ static void render_now_playing() {
     lv_timer_resume(tickTimer);
   } else {
     lv_timer_pause(tickTimer);
+  }
+  if (artGet.inFlight()) {
+    lv_timer_resume(artPollTimer);
+  } else {
+    lv_timer_pause(artPollTimer);
   }
 }
 
@@ -413,6 +503,10 @@ void notify_tab_before_delete_appleTV(void) {
   if (tickTimer != nullptr) {
     lv_timer_del(tickTimer);
     tickTimer = nullptr;
+  }
+  if (artPollTimer != nullptr) {
+    lv_timer_del(artPollTimer);
+    artPollTimer = nullptr;
   }
   idleView = nullptr;
   coverView = {};

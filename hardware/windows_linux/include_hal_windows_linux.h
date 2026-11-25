@@ -3,6 +3,7 @@
 #include "windows_linux/battery_hal_windows_linux.h"
 #include "windows_linux/hardware_general_hal_windows_linux.h"
 #include "windows_linux/heapUsage_hal_windows_linux.h"
+#include "windows_linux/http_hal_windows_linux.h"
 #include "windows_linux/infrared_receiver_hal_windows_linux.h"
 #include "windows_linux/infrared_sender_hal_windows_linux.h"
 #include "windows_linux/keyboard_ble_hal_windows_linux.h"
