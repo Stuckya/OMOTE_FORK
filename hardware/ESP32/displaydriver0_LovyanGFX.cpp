@@ -6,7 +6,6 @@
 #include <LovyanGFX.hpp>
 
 
-#if(OMOTE_HARDWARE_REV >= 5)
 // Power-on to first command, as it was with tft.init(): 5 ms here, then LovyanGFX's 8 and 64 ms.
 const unsigned long PANEL_POWER_UP_MS = 77;
 
@@ -17,7 +16,6 @@ static unsigned long sleepOutSentAtMs = 0;
 
 // LovyanGFX's ILI9341 init list, ended after Sleep Out. The library waits 120 ms there and then
 // sends Display On. Setup draws the first frame in that time, and turn_on_tft() sends Display On.
-// Rev1-4 keeps the library's list: not tested there.
 struct Panel_ILI9341_DisplayOnLater : public lgfx::Panel_ILI9341 {
   bool init(bool use_reset) override {
     const bool initialised = lgfx::Panel_ILI9341::init(use_reset);
@@ -52,16 +50,14 @@ protected:
     return listno == 0 ? list0 : nullptr;
   }
 };
-#endif
 
 // LCD declarations -------------------------------------------------------------------------------
 class LGFX : public lgfx::LGFX_Device{
 private:
-    #if(OMOTE_HARDWARE_REV >= 5)
     Panel_ILI9341_DisplayOnLater _panel_instance;
+    #if(OMOTE_HARDWARE_REV >= 5)
     lgfx::Bus_Parallel8 _bus_instance;
     #else
-    lgfx::Panel_ILI9341 _panel_instance;
     lgfx::Bus_SPI _bus_instance;
     #endif
     lgfx::Touch_FT5x06 _touch_instance;
@@ -203,14 +199,10 @@ bool touchChipResponds_display_specific() {
 }
 
 void init_tft(void) {
-  #if(OMOTE_HARDWARE_REV >= 5)
   while (ms_since_display_power_on() < PANEL_POWER_UP_MS) {
     delay(1);
   }
   tft.init_without_reset(true);
-  #else
-  tft.init();
-  #endif
   tft.initDMA();
   #ifdef DISPLAY_INVERT_COLORS
   // Sends the controller's INVON (0x21). Before fillScreen(), so the screen is already cleared to
@@ -222,13 +214,11 @@ void init_tft(void) {
 }
 
 void turn_on_tft(void) {
-  #if(OMOTE_HARDWARE_REV >= 5)
   while (millis() - sleepOutSentAtMs < PANEL_SLEEP_OUT_MS) {
     delay(1);
   }
   tft.startWrite();
   tft.writeCommand(ILI9341_DISPLAY_ON);
   tft.endWrite();
-  #endif
 }
 #endif // DISPLAY_DRIVER == 0
