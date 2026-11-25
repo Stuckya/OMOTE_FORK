@@ -36,6 +36,7 @@ public:
   // been set from the hub; never past the duration.
   uint32_t elapsedSeconds(time_t now) const;
   int progressPermille(time_t now) const;
+  // "--:--" for a time the hub does not know.
   std::string elapsedText(time_t now) const;
   std::string durationText() const;
 

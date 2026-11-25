@@ -347,13 +347,7 @@ static void set_line(lv_obj_t* label, const std::string& text) {
 
 static void render_progress(const ProgressRow& progress, time_t now) {
   set_line(progress.stateIcon, state_symbol());
-  const bool hasProgress = nowPlaying.hasProgress();
-  set_hidden(progress.bar, !hasProgress);
-  set_hidden(progress.elapsed, !hasProgress);
-  set_hidden(progress.duration, !hasProgress);
-  if (!hasProgress) {
-    return;
-  }
+  // Plex sends a new item's duration seconds after the item, so the row keeps its empty track.
   lv_bar_set_value(progress.bar, nowPlaying.progressPermille(now), LV_ANIM_OFF);
   set_text_if_changed(progress.elapsed, nowPlaying.elapsedText(now));
   set_text_if_changed(progress.duration, nowPlaying.durationText());

@@ -8,6 +8,7 @@ static const time_t EARLIEST_SET_CLOCK = 1000000000;
 static const int PERMILLE = 1000;
 static const uint32_t SECONDS_PER_MINUTE = 60;
 static const uint32_t SECONDS_PER_HOUR = 3600;
+static const char* const UNKNOWN_TIME = "--:--";
 
 void HubNowPlaying::observe(const omote_DeviceState& snapshot) {
   if (snapshot.has_media_player && snapshot.media_player.has_playback) {
@@ -103,10 +104,18 @@ int HubNowPlaying::progressPermille(time_t now) const {
 }
 
 std::string HubNowPlaying::elapsedText(time_t now) const {
+  // Position has no presence on the wire, so a 0 without a duration reads as unknown.
+  const bool positionKnown = hasProgress() || playback.position > 0;
+  if (!positionKnown) {
+    return UNKNOWN_TIME;
+  }
   return formatPlaybackTime(elapsedSeconds(now));
 }
 
 std::string HubNowPlaying::durationText() const {
+  if (!hasProgress()) {
+    return UNKNOWN_TIME;
+  }
   return formatPlaybackTime(playback.duration);
 }
 
