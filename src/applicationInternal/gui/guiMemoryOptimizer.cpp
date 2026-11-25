@@ -2,6 +2,7 @@
 #include "applicationInternal/gui/guiBase.h"
 #include "applicationInternal/gui/guiMemoryOptimizer.h"
 #include "applicationInternal/gui/guiRegistry.h"
+#include "applicationInternal/gui/guiShownListeners.h"
 #include "applicationInternal/hardware/hardwarePresenter.h"
 #include "applicationInternal/scenes/sceneRegistry.h"
 #include "applicationInternal/omote_log.h"
@@ -310,6 +311,7 @@ void doTabCreation_strategyMax3(lv_obj_t* tabview, t_gui_state *gui_state) {
     // set active tab
     setActiveTab(gui_state->activeTabID, LV_ANIM_OFF);
     gui_memoryOptimizer_setActiveGUIname(nameOfNewActiveTab);
+    Gui::notifyShownGui(nameOfNewActiveTab);
   }
 }
 
