@@ -204,8 +204,6 @@ bool touchChipResponds_display_specific() {
 
 void init_tft(void) {
   #if(OMOTE_HARDWARE_REV >= 5)
-  // There is no reset pin, so LovyanGFX's two reset waits only gave the panel time after power-on.
-  // Setup builds the tabs in that time. What is left of it is waited out here.
   while (ms_since_display_power_on() < PANEL_POWER_UP_MS) {
     delay(1);
   }
@@ -228,8 +226,6 @@ void turn_on_tft(void) {
   while (millis() - sleepOutSentAtMs < PANEL_SLEEP_OUT_MS) {
     delay(1);
   }
-  // writeCommand() does not select the panel itself. No wait follows: the datasheet asks for none
-  // after Display On.
   tft.startWrite();
   tft.writeCommand(ILI9341_DISPLAY_ON);
   tft.endWrite();
