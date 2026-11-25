@@ -18,6 +18,7 @@ void set_backlight_duty(uint32_t duty) {
 }
 
 static void route_pin_to_plain_gpio(uint8_t pin) {
+  esp_rom_gpio_pad_select_gpio(pin);
   esp_rom_gpio_connect_out_signal(pin, SIG_GPIO_OUT_IDX, false, false);
 }
 
