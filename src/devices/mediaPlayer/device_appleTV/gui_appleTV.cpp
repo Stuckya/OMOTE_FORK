@@ -303,18 +303,6 @@ void create_tab_content_appleTV(lv_obj_t* tab) {
   render_now_playing();
 }
 
-// The built-in Montserrat has no middle dot; the hub joins lines with one.
-static std::string displayable(const std::string& input) {
-  static const std::string MIDDLE_DOT = "\xC2\xB7";
-  std::string result = input;
-  size_t pos = 0;
-  while ((pos = result.find(MIDDLE_DOT, pos)) != std::string::npos) {
-    result.replace(pos, MIDDLE_DOT.size(), "|");
-    pos += 1;
-  }
-  return result;
-}
-
 static const char* state_text() {
   switch (nowPlaying.state()) {
     case HubNowPlaying::State::PLAYING: return LV_SYMBOL_PLAY " PLAYING";
@@ -343,7 +331,7 @@ static void set_hidden(lv_obj_t* obj, bool hidden) {
 
 static void set_line(lv_obj_t* label, const std::string& text) {
   set_hidden(label, text.empty());
-  set_text_if_changed(label, displayable(text));
+  set_text_if_changed(label, text);
 }
 
 static void render_progress(const ProgressRow& progress, time_t now) {
