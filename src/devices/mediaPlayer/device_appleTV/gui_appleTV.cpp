@@ -1,6 +1,7 @@
 #include <lvgl.h>
 #include <ctime>
 #include <string>
+#include <blurHash.h>
 #include <hubCoverArt.h>
 #include <hubNowPlaying.h>
 #include "applicationInternal/hardware/hardwarePresenter.h"
@@ -101,6 +102,9 @@ static uint8_t* shownPixels = nullptr;
 static uint8_t* fetchingPixels = nullptr;
 static lv_img_dsc_t shownArt = {};
 static lv_img_dsc_t fetchingArt = {};
+static uint8_t* blurPixels = nullptr;
+static lv_img_dsc_t blurArt = {};
+static std::string blurDecodedForUrl;
 
 struct ProgressRow {
   lv_obj_t* row;
@@ -113,6 +117,7 @@ struct ProgressRow {
 struct CoverView {
   lv_obj_t* root;
   lv_obj_t* cover;
+  lv_obj_t* blur;
   lv_obj_t* art;
   lv_obj_t* glyph;
   lv_obj_t* title;
@@ -231,6 +236,8 @@ static void create_cover_view(lv_obj_t* tab) {
   lv_obj_set_style_bg_color(coverView.cover, lv_color_hex(COLOR_PLACEHOLDER_TILE), LV_PART_MAIN);
   lv_obj_set_style_bg_opa(coverView.cover, LV_OPA_COVER, LV_PART_MAIN);
 
+  coverView.blur = lv_img_create(coverView.cover);
+  lv_obj_center(coverView.blur);
   coverView.art = lv_img_create(coverView.cover);
   lv_obj_center(coverView.art);
   coverView.glyph = create_label(coverView.cover, &lv_font_montserrat_24, COLOR_PLACEHOLDER_GLYPH);
@@ -419,10 +426,42 @@ static void render_progress(const ProgressRow& progress, time_t now) {
   set_text_if_changed(progress.duration, nowPlaying.durationText());
 }
 
+// Decoded once per url, at the cover size, so the art can fade in over it.
+static bool blurhash_ready_for_current_art() {
+  if (blurDecodedForUrl == coverArt.url() && blurPixels != nullptr) {
+    return true;
+  }
+  const uint32_t width = nowPlaying.coverWidth();
+  const uint32_t height = nowPlaying.coverHeight();
+  uint8_t* decoded = allocateLargeBuffer(coverArt.expectedBytes());
+  if (decoded == nullptr) {
+    return false;
+  }
+  if (!decodeBlurHashRgb565(coverArt.blurhash().c_str(), width, height, (uint16_t*)decoded)) {
+    freeLargeBuffer(decoded);
+    return false;
+  }
+  uint8_t* replaced = blurPixels;
+  blurPixels = decoded;
+  blurArt = rgb565Image(blurPixels, width, height);
+  blurDecodedForUrl = coverArt.url();
+  lv_img_cache_invalidate_src(&blurArt);
+  lv_img_set_src(coverView.blur, &blurArt);
+  freeLargeBuffer(replaced);
+  return true;
+}
+
 static void render_cover_fill() {
   const HubCoverArt::Fill fill = coverArt.fill();
   const bool showArt = fill == HubCoverArt::Fill::ART && shownPixels != nullptr;
+  const bool wantsBlur = fill == HubCoverArt::Fill::BLURHASH ||
+                         (showArt && blurDecodedForUrl == coverArt.url());
+  const bool showBlur = wantsBlur && blurhash_ready_for_current_art();
   set_hidden(coverView.glyph, fill != HubCoverArt::Fill::GLYPH);
+  set_hidden(coverView.blur, !showBlur);
+  if (showBlur) {
+    lv_img_set_src(coverView.blur, &blurArt);
+  }
   set_hidden(coverView.art, !showArt);
   if (showArt && !artIsShown) {
     lv_img_set_src(coverView.art, &shownArt);

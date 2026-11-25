@@ -5,6 +5,7 @@ static const size_t RGB565_BYTES_PER_PIXEL = 2;
 void HubCoverArt::observe(const omote_Cover& cover) {
   art = cover.art;
   currentUrl = cover.url;
+  currentBlurhash = cover.blurhash;
   width = cover.width;
   height = cover.height;
 }
@@ -20,7 +21,10 @@ HubCoverArt::Fill HubCoverArt::fill() const {
   if (!artIsReady() || currentUrl == failedUrl) {
     return Fill::GLYPH;
   }
-  return currentUrl == fetchedUrl ? Fill::ART : Fill::BLANK;
+  if (currentUrl == fetchedUrl) {
+    return Fill::ART;
+  }
+  return currentBlurhash.empty() ? Fill::BLANK : Fill::BLURHASH;
 }
 
 bool HubCoverArt::shouldFetch() const {
@@ -29,6 +33,10 @@ bool HubCoverArt::shouldFetch() const {
 
 const std::string& HubCoverArt::url() const {
   return currentUrl;
+}
+
+const std::string& HubCoverArt::blurhash() const {
+  return currentBlurhash;
 }
 
 size_t HubCoverArt::expectedBytes() const {

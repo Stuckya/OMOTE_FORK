@@ -8,14 +8,16 @@
 // remote fetches the hub's current url once, and a failed url stays on the placeholder.
 class HubCoverArt {
 public:
-  // GLYPH is the placeholder; BLANK waits for art the hub or the remote is still fetching.
-  enum class Fill { GLYPH, BLANK, ART };
+  // GLYPH is the placeholder; BLANK waits for art the hub or the remote is still fetching, and
+  // BLURHASH stands in for art the remote is fetching when the hub sent its hash.
+  enum class Fill { GLYPH, BLANK, BLURHASH, ART };
 
   void observe(const omote_Cover& cover);
 
   Fill fill() const;
   bool shouldFetch() const;
   const std::string& url() const;
+  const std::string& blurhash() const;
   size_t expectedBytes() const;
   bool fetchInFlight() const;
 
@@ -27,6 +29,7 @@ private:
 
   omote_CoverArt art = omote_CoverArt_COVER_ART_UNSPECIFIED;
   std::string currentUrl;
+  std::string currentBlurhash;
   size_t width = 0;
   size_t height = 0;
   std::string inFlightUrl;

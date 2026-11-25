@@ -8,12 +8,13 @@ void tearDown() {}
 static const char* ART_URL = "http://hub:8080/artwork/APPLE_TV/a1";
 static const char* NEXT_URL = "http://hub:8080/artwork/APPLE_TV/b2";
 
-static omote_Cover makeCover(omote_CoverArt art, const char* url = "") {
+static omote_Cover makeCover(omote_CoverArt art, const char* url = "", const char* blurhash = "") {
   omote_Cover cover = omote_Cover_init_zero;
   cover.width = 200;
   cover.height = 113;
   cover.art = art;
   strncpy(cover.url, url, sizeof(cover.url) - 1);
+  strncpy(cover.blurhash, blurhash, sizeof(cover.blurhash) - 1);
   return cover;
 }
 
