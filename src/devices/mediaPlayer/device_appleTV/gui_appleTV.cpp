@@ -4,6 +4,7 @@
 #include <hubNowPlaying.h>
 #include "applicationInternal/hardware/hardwarePresenter.h"
 #include "applicationInternal/gui/guiBase.h"
+#include "applicationInternal/gui/fonts/guiFonts.h"
 #include "applicationInternal/gui/guiRegistry.h"
 #include "applicationInternal/gui/guiShownListeners.h"
 #include "applicationInternal/omote_log.h"
@@ -235,9 +236,9 @@ static void create_cover_view(lv_obj_t* tab) {
   lv_obj_set_flex_align(lines, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_style_pad_row(lines, 2, LV_PART_MAIN);
 
-  coverView.title = create_line_label(lines, &lv_font_montserrat_16, COLOR_TEXT, textWidth);
-  coverView.subtitle = create_line_label(lines, &lv_font_montserrat_14, COLOR_TEXT_SECONDARY, textWidth);
-  coverView.caption = create_line_label(lines, &lv_font_montserrat_12, COLOR_TEXT_TERTIARY, textWidth);
+  coverView.title = create_line_label(lines, &montserrat_latin_16, COLOR_TEXT, textWidth);
+  coverView.subtitle = create_line_label(lines, &montserrat_latin_14, COLOR_TEXT_SECONDARY, textWidth);
+  coverView.caption = create_line_label(lines, &montserrat_latin_12, COLOR_TEXT_TERTIARY, textWidth);
   lv_obj_set_style_text_align(coverView.title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
   lv_obj_set_style_text_align(coverView.subtitle, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
   lv_obj_set_style_text_align(coverView.caption, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
@@ -269,18 +270,18 @@ static void create_text_forward_view(lv_obj_t* tab) {
   lv_obj_set_flex_align(body, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
   lv_obj_set_style_pad_row(body, 6, LV_PART_MAIN);
 
-  textForwardView.title = create_label(body, &lv_font_montserrat_24, COLOR_TEXT);
-  textForwardView.subtitle = create_label(body, &lv_font_montserrat_16, COLOR_TEXT_SECONDARY);
-  textForwardView.caption = create_line_label(body, &lv_font_montserrat_12, COLOR_TEXT_TERTIARY, textWidth);
+  textForwardView.title = create_label(body, &montserrat_latin_24, COLOR_TEXT);
+  textForwardView.subtitle = create_label(body, &montserrat_latin_16, COLOR_TEXT_SECONDARY);
+  textForwardView.caption = create_line_label(body, &montserrat_latin_12, COLOR_TEXT_TERTIARY, textWidth);
   const lv_coord_t titleLines = 3;
   const lv_coord_t subtitleLines = 2;
   lv_obj_set_size(textForwardView.title, textWidth, LV_SIZE_CONTENT);
   lv_obj_set_style_max_height(textForwardView.title,
-                              titleLines * lv_font_get_line_height(&lv_font_montserrat_24), LV_PART_MAIN);
+                              titleLines * lv_font_get_line_height(&montserrat_latin_24), LV_PART_MAIN);
   lv_label_set_long_mode(textForwardView.title, LV_LABEL_LONG_DOT);
   lv_obj_set_size(textForwardView.subtitle, textWidth, LV_SIZE_CONTENT);
   lv_obj_set_style_max_height(textForwardView.subtitle,
-                              subtitleLines * lv_font_get_line_height(&lv_font_montserrat_16), LV_PART_MAIN);
+                              subtitleLines * lv_font_get_line_height(&montserrat_latin_16), LV_PART_MAIN);
   lv_label_set_long_mode(textForwardView.subtitle, LV_LABEL_LONG_DOT);
 
   textForwardView.progress = create_progress_row(textForwardView.root, textWidth);
