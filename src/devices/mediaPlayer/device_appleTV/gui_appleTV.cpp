@@ -60,7 +60,8 @@ static const lv_coord_t TEXT_FORWARD_PAD = 18;
 static const lv_coord_t BOTTOM_PAD = 8;
 static const lv_coord_t COVER_RADIUS = 11;
 static const lv_coord_t CHIP_INSET = 7;
-static const lv_coord_t PROGRESS_KNOB_PAD = 3;
+static const lv_coord_t PROGRESS_HEIGHT = 3;
+static const lv_coord_t PROGRESS_RADIUS = 2;
 static const uint32_t TICK_MS = 1000;
 static const int PROGRESS_RANGE = 1000;
 static const lv_opa_t CHIP_OPA = 107;
@@ -170,15 +171,16 @@ static ProgressRow create_progress_row(lv_obj_t* parent, lv_coord_t width) {
   lv_obj_set_size(progress.row, width, 26);
   lv_obj_align(progress.row, LV_ALIGN_BOTTOM_MID, 0, -BOTTOM_PAD);
 
-  progress.bar = lv_slider_create(progress.row);
-  lv_obj_clear_flag(progress.bar, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_set_size(progress.bar, width - 2 * PROGRESS_KNOB_PAD, 3);
-  lv_obj_align(progress.bar, LV_ALIGN_TOP_MID, 0, PROGRESS_KNOB_PAD);
-  lv_slider_set_range(progress.bar, 0, PROGRESS_RANGE);
+  progress.bar = lv_bar_create(progress.row);
+  lv_obj_set_size(progress.bar, width, PROGRESS_HEIGHT);
+  lv_obj_align(progress.bar, LV_ALIGN_TOP_MID, 0, 0);
+  lv_bar_set_range(progress.bar, 0, PROGRESS_RANGE);
   lv_obj_set_style_bg_color(progress.bar, lv_color_hex(COLOR_TRACK), LV_PART_MAIN);
   lv_obj_set_style_bg_color(progress.bar, lv_color_hex(COLOR_ACCENT), LV_PART_INDICATOR);
-  lv_obj_set_style_bg_color(progress.bar, lv_color_white(), LV_PART_KNOB);
-  lv_obj_set_style_pad_all(progress.bar, PROGRESS_KNOB_PAD, LV_PART_KNOB);
+  lv_obj_set_style_radius(progress.bar, PROGRESS_RADIUS, LV_PART_MAIN);
+  lv_obj_set_style_radius(progress.bar, PROGRESS_RADIUS, LV_PART_INDICATOR);
+  lv_obj_set_style_bg_opa(progress.bar, LV_OPA_COVER, LV_PART_MAIN);
+  lv_obj_set_style_bg_opa(progress.bar, LV_OPA_COVER, LV_PART_INDICATOR);
 
   progress.elapsed = create_label(progress.row, &lv_font_montserrat_12, COLOR_TEXT_TERTIARY);
   lv_obj_align(progress.elapsed, LV_ALIGN_BOTTOM_LEFT, 0, 0);
@@ -340,7 +342,7 @@ static void render_progress(const ProgressRow& progress, time_t now) {
   if (!nowPlaying.hasProgress()) {
     return;
   }
-  lv_slider_set_value(progress.bar, nowPlaying.progressPermille(now), LV_ANIM_OFF);
+  lv_bar_set_value(progress.bar, nowPlaying.progressPermille(now), LV_ANIM_OFF);
   set_text_if_changed(progress.elapsed, nowPlaying.elapsedText(now));
   set_text_if_changed(progress.duration, nowPlaying.durationText());
 }
