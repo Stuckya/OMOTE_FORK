@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include "applicationInternal/commandHandler.h"
+#include "applicationInternal/startupCommandQueue.h"
 #include "applicationInternal/scenes/sceneHandler.h"
 #include "applicationInternal/hardware/hardwarePresenter.h"
 #include "applicationInternal/omote_log.h"
@@ -19,12 +20,16 @@
 #include "applicationInternal/hub/powerStatus.h"
 #include "applicationInternal/hub/sleepTimer.h"
 #include "applicationInternal/hub/hubDeviceNames.h"
+#include "applicationInternal/hub/hubDeviceStateListeners.h"
 #include "applicationInternal/gui/guiStatusUpdate.h"
 #include <hubDeviceStateCache.h>
 
 // Latest per-device snapshots from the hub, fed by wake syncs and by pushes
 // when the hub runs with publish_device_state on.
 static HubDeviceStateCache hubDeviceStateCache;
+
+static StartupCommandQueue pendingCommands;
+static bool guiReady = false;
 
 uint16_t COMMAND_UNKNOWN;
 
@@ -204,6 +209,12 @@ void sendHubMessage(const std::string& device, const std::string& command, Comma
   sendHubMessage(device, Hub::ProtoCodec::stringToCommand(command), cmdType);
 }
 
+static void sendHubInputSelect(const std::string& device, const std::string& input) {
+  omote_log_d("execute: will send hub input select for device '%s', input '%s'\r\n",
+              device.c_str(), input.c_str());
+  HubManager::getInstance().sendRemoteEvent(Hub::ProtoCodec::createInputSelectEvent(device, input));
+}
+
 void executeCommandWithData(uint16_t command, commandData commandData, std::string additionalPayload) {
   switch (commandData.commandHandler) {
     case IR: {
@@ -288,6 +299,12 @@ void executeCommandWithData(const CommandExecutionParams& params, commandData co
     const std::string commandName = *current;
     current = std::next(current, 1);
 
+    if (Hub::ProtoCodec::stringToCommand(commandName) == omote_OmoteCommand_INPUT_SELECT) {
+      const std::string input = (current != commandData.commandPayloads.end()) ? *current : "";
+      sendHubInputSelect(deviceName, input);
+      return;
+    }
+
     sendHubMessage(deviceName, commandName, params.commandType);
     return;
   }
@@ -325,10 +342,21 @@ void executeCommand(const CommandExecutionParams& params) {
     }
     
     commandData cmdData = commands.at(params.commandId);
+    if (!guiReady && requiresGui(cmdData)) {
+      pendingCommands.push(params);
+      return;
+    }
     executeCommandWithData(params, cmdData);
   }
   catch (const std::out_of_range& oor) {
     omote_log_e("executeCommand: internal error, command not registered\r\n");
+  }
+}
+
+void runCommandsThatWaitedForGui() {
+  guiReady = true;
+  for (const CommandExecutionParams& params : pendingCommands.takeAll()) {
+    executeCommand(params);
   }
 }
 
@@ -375,6 +403,7 @@ static void mergePushedDeviceState(const omote_DeviceState& state) {
   const bool volumeMoved = hubDeviceStateCache.volumeChangedBy(state);
   hubDeviceStateCache.merge(state);
   Hub::PowerStatus::observed(state);
+  Hub::notifyDeviceStateListener(state);
   if (!volumeMoved || HubManager::getInstance().volumeDeviceId() != state.device_id) {
     return;
   }

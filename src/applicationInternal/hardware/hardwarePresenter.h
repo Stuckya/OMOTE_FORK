@@ -136,6 +136,8 @@ void set_backlightBrightness(uint8_t aBacklightBrightness);
 
 // --- lvgl -------------------------------------------------------------------
 void init_lvgl_hardware();
+void start_display_panel();
+void turn_display_on();
 
 // --- WiFi / MQTT ------------------------------------------------------------
 #if (ENABLE_WIFI_AND_MQTT == 1)
@@ -168,9 +170,12 @@ void set_espnow_message_callback(void (*callback)(const uint8_t* data, size_t le
 
 // --- WebSocket --------------------------------------------------------------
 #if (ENABLE_HUB_COMMUNICATION == 3)
+void start_hub_link_in_background();
 void init_websocket(const char* hub_url);
 void websocket_loop();
 bool publishWebSocketMessage(const uint8_t* data, size_t len);
+bool send_websocket_message_after_connect(const uint8_t* data, size_t len);
+bool websocket_message_was_sent_after_connect();
 void websocket_shutdown();
 bool websocket_is_connected();
 void set_websocket_message_callback(void (*callback)(const uint8_t* data, size_t len));

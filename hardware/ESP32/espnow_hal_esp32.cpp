@@ -25,8 +25,8 @@ uint32_t reportedDrops = 0;
 }
 
 // Driver-owned bytes expire on return; copy them for main-loop dispatch.
-void onDataReceived(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
-  (void)mac_addr;
+void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int data_len) {
+  (void)info;
   if (data_len <= 0) {
     return;
   }

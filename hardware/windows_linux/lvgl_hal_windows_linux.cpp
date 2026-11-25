@@ -119,3 +119,6 @@ void init_lvgl_HAL() {
 
   omote_sim_post_init();
 }
+
+void start_display_panel_HAL() {}
+void turn_display_on_HAL() {}

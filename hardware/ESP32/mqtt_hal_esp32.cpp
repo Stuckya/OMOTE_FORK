@@ -23,6 +23,27 @@ enum class AccessPointChoice { PinnedJoining, PinnedJoined, Strongest };
 AccessPointChoice accessPointChoice = AccessPointChoice::PinnedJoining;
 #endif
 
+#if defined(WIFI_STATIC_IP) && !(defined(WIFI_STATIC_GATEWAY) && defined(WIFI_STATIC_SUBNET))
+#error "WIFI_STATIC_IP also needs WIFI_STATIC_GATEWAY and WIFI_STATIC_SUBNET"
+#endif
+#if defined(WIFI_STATIC_IP) && !defined(WIFI_STATIC_DNS)
+#define WIFI_STATIC_DNS "0.0.0.0"
+#endif
+
+void useStaticAddressIfConfigured() {
+  #if defined(WIFI_STATIC_IP)
+  IPAddress address, gateway, subnet, dns;
+  if (!address.fromString(WIFI_STATIC_IP) || !gateway.fromString(WIFI_STATIC_GATEWAY) ||
+      !subnet.fromString(WIFI_STATIC_SUBNET) || !dns.fromString(WIFI_STATIC_DNS)) {
+    Serial.printf("[%lu ms] Static address is not valid, using DHCP\r\n", millis());
+    return;
+  }
+  if (!WiFi.config(address, gateway, subnet, dns)) {
+    Serial.printf("[%lu ms] Static address was not applied\r\n", millis());
+  }
+  #endif
+}
+
 void notePinnedAssociation() {
   #if defined(WIFI_BSSID)
   if (accessPointChoice == AccessPointChoice::PinnedJoining) {
@@ -122,6 +143,7 @@ void init_mqtt_HAL(void) {
   WiFi.setHostname("OMOTE"); //define hostname
   WiFi.onEvent(WiFiEvent);
   Serial.printf("[%lu ms] WiFi association started\r\n", millis());
+  useStaticAddressIfConfigured();
   joinWifi();
   #if (ENABLE_BLUETOOTH == 1)
   // Wi-Fi and BLE need power saving on to share the radio.
@@ -316,6 +338,8 @@ bool publishMQTTMessageProto_HAL(const char *topic, const uint8_t* payload, size
 }
 
 void wifi_shutdown_HAL() {
+  // This disconnect is deliberate. Left registered, the handler starts a new join while WiFi is being turned off.
+  WiFi.removeEvent(WiFiEvent);
   WiFi.disconnect();
   WiFi.mode(WIFI_OFF);
 }

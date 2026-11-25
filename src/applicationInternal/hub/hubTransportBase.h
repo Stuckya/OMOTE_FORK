@@ -24,6 +24,17 @@ public:
   
   virtual bool isReady() = 0;
 
+  // A transport that connects on its own task can take one event and send it the moment the link
+  // opens, while the main loop is still busy. The caller keeps the event until sentAfterConnect().
+  virtual bool sendMessageAfterConnect(const omote_RemoteEvent& event) {
+    (void)event;
+    return false;
+  }
+
+  virtual bool sentAfterConnect() {
+    return false;
+  }
+
   virtual unsigned long wakeQueueTtlMs() const {
     return DEFAULT_WAKE_QUEUE_TTL_MS;
   }

@@ -139,6 +139,7 @@ struct CommandExecutionParams {
 
 // Version that takes a parameter struct
 void executeCommand(const CommandExecutionParams& params);
+void runCommandsThatWaitedForGui();
 
 // Original executeCommandWithData
 void executeCommandWithData(uint16_t command, commandData commandData, std::string additionalPayload = "");

@@ -517,7 +517,7 @@ void fillPanelWithPageIndicator_strategyMax3(lv_obj_t* panel, lv_obj_t* img1, lv
   lv_obj_set_style_shadow_width(btn, 0, LV_PART_MAIN);
   lv_obj_set_style_opa(btn, LV_OPA_TRANSP, LV_PART_MAIN);
 
-  // creation of style was moved to init_gui(void)
+  // creation of style was moved to init_gui_tabs(void)
   // otherwise repeated calls of lv_style_init will lead to a memory leak of about 46 bytes each time
   // https://docs.lvgl.io/8.3/overview/style.html?highlight=lv_style_t#initialize-styles-and-set-get-properties
   lv_obj_add_style(panel, &panel_style, 0);
@@ -559,7 +559,7 @@ void gui_memoryOptimizer_notifyAndClear(lv_obj_t** tabview, lv_obj_t** panel, lv
 
 void gui_memoryOptimizer_doContentCreation(lv_obj_t** tabview, lv_obj_t** panel, lv_obj_t** img1, lv_obj_t** img2, t_gui_state *gui_state);
 
-// 1. tab creation on startup (called by init_gui())
+// 1. tab creation on startup (called by init_gui_tabs())
 // find the position of the current GUI in the gui list which was active last (both were automatically saved in the preferences) 
 void gui_memoryOptimizer_onStartup(lv_obj_t** tabview, lv_obj_t** panel, lv_obj_t** img1, lv_obj_t** img2) {
 

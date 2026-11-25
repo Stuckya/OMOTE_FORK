@@ -38,6 +38,14 @@ omote_RemoteEvent ProtoCodec::createSleepTimerEvent(omote_OmoteCommand command,
     return event;
 }
 
+omote_RemoteEvent ProtoCodec::createInputSelectEvent(const std::string& device,
+                                                     const std::string& input) {
+    omote_RemoteEvent event = createRemoteEvent(device, omote_OmoteCommand_INPUT_SELECT);
+    event.has_input_select = true;
+    copyStringField(event.input_select.input, sizeof(event.input_select.input), input);
+    return event;
+}
+
 omote_OmoteCommand ProtoCodec::stringToCommand(const std::string& cmd) {
     struct CommandMapping {
         const char* name;
@@ -64,6 +72,7 @@ omote_OmoteCommand ProtoCodec::stringToCommand(const std::string& cmd) {
         {"PAIRING_SUBMIT_PIN", omote_OmoteCommand_PAIRING_SUBMIT_PIN},
         {"PAIRING_CANCEL", omote_OmoteCommand_PAIRING_CANCEL},
         {"SYNC_STATE", omote_OmoteCommand_SYNC_STATE},
+        {"INPUT_SELECT", omote_OmoteCommand_INPUT_SELECT},
         {"STOP", omote_OmoteCommand_STOP},
         {"REWIND", omote_OmoteCommand_REWIND},
         {"FORWARD", omote_OmoteCommand_FORWARD},

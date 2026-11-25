@@ -4,6 +4,7 @@
 #include <list>
 #include "applicationInternal/commandHandler.h"
 #include "applicationInternal/hub/hubDeviceNames.h"
+#include "applicationInternal/hub/hubDeviceStateListeners.h"
 
 #if (ENABLE_HUB_COMMUNICATION > 0)
   inline void register_hub_command(uint16_t *command, const char *device, const char *cmd) {
@@ -22,6 +23,10 @@
 
   inline void register_hub_device_name(const char *device, const char *name) {
     Hub::registerHubDeviceName(device, name);
+  }
+
+  inline void register_hub_device_state_listener(const char *device, Hub::DeviceStateListener listener) {
+    Hub::registerDeviceStateListener(device, listener);
   }
 
   inline void execute_hub_command(uint16_t command, CommandExecutionType type = CMD_SHORT, const std::string& additionalPayload = "") {

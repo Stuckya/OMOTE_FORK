@@ -61,6 +61,15 @@ public:
     );
 
     /**
+     * Build an input-select request. `device` owns the inputs; `input` is the
+     * name that device lists the input under.
+     */
+    static omote_RemoteEvent createInputSelectEvent(
+        const std::string& device,
+        const std::string& input
+    );
+
+    /**
      * Map string command to protobuf enum.
      */
     static omote_OmoteCommand stringToCommand(const std::string& cmd);

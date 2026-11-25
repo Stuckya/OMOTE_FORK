@@ -8,7 +8,7 @@
 #include <vector>
 #include <string>
 
-// Fires when an event actually reaches the transport, which on a wake can be
+// Fires once an event has reached the transport, which on a wake can be
 // seconds after it was accepted into the outbound queue.
 typedef void (*EventTransmittedCallback)(const omote_RemoteEvent& event);
 
@@ -28,6 +28,7 @@ private:
 
   EventTransmittedCallback eventTransmittedCallback = nullptr;
   HubOutboundQueue outboundQueue;
+  bool headSendsAfterConnect = false;
 
   std::function<void(const omote_CommandResult&)> messageHandler;
 
@@ -45,6 +46,7 @@ private:
   void noteTransmitted(const omote_RemoteEvent& event);
   unsigned long currentQueueTtlMs() const;
   bool enqueueEvent(const omote_RemoteEvent& event);
+  void dropHeadIfSentAfterConnect();
   void flushQueue();
   void clearQueue();
 

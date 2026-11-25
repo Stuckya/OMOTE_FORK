@@ -216,8 +216,39 @@ void test_sleep_timer_event_survives_the_wire() {
   TEST_ASSERT_EQUAL_UINT32(90, decoded.sleep_timer.minutes);
 }
 
+void test_input_select_carries_the_input_in_a_typed_field() {
+  const omote_RemoteEvent event = ProtoCodec::createInputSelectEvent("DENON_AVR", "Apple TV");
+
+  TEST_ASSERT_EQUAL(omote_OmoteCommand_INPUT_SELECT, event.command);
+  TEST_ASSERT_EQUAL_STRING("DENON_AVR", event.device);
+  TEST_ASSERT_TRUE(event.has_input_select);
+  TEST_ASSERT_EQUAL_STRING("Apple TV", event.input_select.input);
+  TEST_ASSERT_EQUAL_UINT(0, event.data.size);
+}
+
+void test_input_select_event_survives_the_wire() {
+  const omote_RemoteEvent event = ProtoCodec::createInputSelectEvent("DENON_AVR", "SHIELD");
+  uint8_t buffer[omote_RemoteEvent_size];
+  const size_t written = ProtoCodec::encodeRemoteEvent(event, buffer, sizeof(buffer));
+  TEST_ASSERT_GREATER_THAN_UINT(0, written);
+
+  omote_RemoteEvent decoded = omote_RemoteEvent_init_zero;
+  pb_istream_t stream = pb_istream_from_buffer(buffer, written);
+  TEST_ASSERT_TRUE(pb_decode(&stream, omote_RemoteEvent_fields, &decoded));
+  TEST_ASSERT_EQUAL(omote_OmoteCommand_INPUT_SELECT, decoded.command);
+  TEST_ASSERT_TRUE(decoded.has_input_select);
+  TEST_ASSERT_EQUAL_STRING("SHIELD", decoded.input_select.input);
+}
+
+void test_input_select_maps_from_its_registered_name() {
+  assertMaps("INPUT_SELECT", omote_OmoteCommand_INPUT_SELECT);
+}
+
 int main() {
   UNITY_BEGIN();
+  RUN_TEST(test_input_select_carries_the_input_in_a_typed_field);
+  RUN_TEST(test_input_select_event_survives_the_wire);
+  RUN_TEST(test_input_select_maps_from_its_registered_name);
   RUN_TEST(test_sleep_timer_set_carries_its_duration_in_a_typed_field);
   RUN_TEST(test_sleep_timer_extend_carries_the_increment);
   RUN_TEST(test_sleep_timer_cancel_carries_no_duration);

@@ -51,6 +51,13 @@ static lv_obj_t* device_settings_row(const char* left, const char* right,
   return row;
 }
 
+// Runs on the next gui_loop() pass, not while the tab is built. Setup builds the tabs before the
+// hub manager exists, and the key that woke the remote goes to the hub before a tab's request.
+static void request_device_list_cb(lv_timer_t* timer) {
+  (void)timer;
+  Hub::DeviceManager::getInstance().requestDeviceList();
+}
+
 static void build_device_rows(void) {
   if (devicesBox == NULL) return;
   lv_obj_clean(devicesBox);
@@ -253,7 +260,7 @@ void create_tab_content_settings(lv_obj_t* tab) {
   lv_obj_set_flex_flow(devicesBox, LV_FLEX_FLOW_COLUMN);
   build_device_rows();
   // Refresh the paired rows from hub storage each time the tab is built.
-  Hub::DeviceManager::getInstance().requestDeviceList();
+  lv_timer_set_repeat_count(lv_timer_create(request_device_list_cb, 0, NULL), 1);
   #endif
 
   // // Add another label, then a settings box for WiFi

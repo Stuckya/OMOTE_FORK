@@ -1,6 +1,6 @@
 #include <lvgl.h>
-#include <map>
 #include <string>
+#include <hubNowPlaying.h>
 #include "applicationInternal/hardware/hardwarePresenter.h"
 #include "applicationInternal/gui/guiBase.h"
 #include "applicationInternal/gui/guiRegistry.h"
@@ -31,12 +31,17 @@ static void appleKey_event_cb(lv_event_t* e) {
   }
 }
 
-// Global metadata display objects
+// The tab is deleted and rebuilt as the user swipes, so the latest playback
+// lives here and each rebuild draws from it.
+static HubNowPlaying nowPlaying;
+
 static lv_obj_t* metadata_container = nullptr;
 static lv_obj_t* title_label = nullptr;
 static lv_obj_t* artist_label = nullptr;
 static lv_obj_t* state_label = nullptr;
 static lv_obj_t* progress_bar = nullptr;
+
+static void render_now_playing();
 
 void create_tab_content_appleTV(lv_obj_t* tab) {
   lv_obj_clear_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
@@ -57,7 +62,6 @@ void create_tab_content_appleTV(lv_obj_t* tab) {
   lv_obj_set_style_pad_all(metadata_container, 16, LV_PART_MAIN);
   
   title_label = lv_label_create(metadata_container);
-  lv_label_set_text(title_label, "No media playing");
   lv_obj_set_style_text_font(title_label, &lv_font_montserrat_16, LV_PART_MAIN);
   lv_obj_set_style_text_color(title_label, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
   lv_obj_align(title_label, LV_ALIGN_TOP_LEFT, 0, 0);
@@ -65,7 +69,6 @@ void create_tab_content_appleTV(lv_obj_t* tab) {
   lv_obj_set_width(title_label, SCR_WIDTH - 64);
   
   artist_label = lv_label_create(metadata_container);
-  lv_label_set_text(artist_label, "");
   lv_obj_set_style_text_font(artist_label, &lv_font_montserrat_14, LV_PART_MAIN);
   lv_obj_set_style_text_color(artist_label, lv_color_hex(0xEBEBF5), LV_PART_MAIN);
   lv_obj_align(artist_label, LV_ALIGN_TOP_LEFT, 0, 28);
@@ -73,7 +76,6 @@ void create_tab_content_appleTV(lv_obj_t* tab) {
   lv_obj_set_width(artist_label, SCR_WIDTH - 64);
   
   state_label = lv_label_create(metadata_container);
-  lv_label_set_text(state_label, "");
   lv_obj_set_style_text_font(state_label, &lv_font_montserrat_12, LV_PART_MAIN);
   lv_obj_set_style_text_color(state_label, lv_color_hex(0x8E8E93), LV_PART_MAIN);
   lv_obj_align(state_label, LV_ALIGN_BOTTOM_LEFT, 0, -24);
@@ -90,8 +92,8 @@ void create_tab_content_appleTV(lv_obj_t* tab) {
   lv_obj_set_style_bg_opa(progress_bar, LV_OPA_100, LV_PART_INDICATOR);
   
   lv_bar_set_range(progress_bar, 0, 100);
-  lv_bar_set_value(progress_bar, 0, LV_ANIM_OFF);
-  lv_obj_add_flag(progress_bar, LV_OBJ_FLAG_HIDDEN);
+
+  render_now_playing();
 }
 
 static std::string replace_bullet_chars(const std::string& input) {
@@ -109,92 +111,67 @@ static std::string add_marquee_gap(const std::string& input) {
   return input + "      ";
 }
 
-struct MetadataUpdateData {
-  std::string title;
-  std::string artist;
-  std::string album;
-  std::string state;
-  int duration;
-  int position;
-};
-
-static void metadata_update_task_cb(lv_timer_t* timer) {
-  MetadataUpdateData* data = static_cast<MetadataUpdateData*>(timer->user_data);
-  
-  if (title_label != nullptr && artist_label != nullptr && state_label != nullptr) {
-    std::string title_text, artist_text, state_text;
-    
-    if (!data->title.empty()) {
-      std::string clean_title = replace_bullet_chars(data->title);
-      title_text = add_marquee_gap(clean_title);
-    } else {
-      title_text = "No media playing";
-    }
-    
-    artist_text = data->artist.empty() ? "" : replace_bullet_chars(data->artist);
-    if (!artist_text.empty() && !data->album.empty()) {
-      artist_text += " • " + replace_bullet_chars(data->album);
-    }
-    if (!artist_text.empty()) {
-      artist_text = add_marquee_gap(artist_text);
-    }
-    
-    static const std::map<std::string, std::string> state_symbols = {
-      {"playing", LV_SYMBOL_PLAY " Playing"},
-      {"paused", LV_SYMBOL_PAUSE " Paused"},
-      {"stopped", LV_SYMBOL_STOP " Stopped"}
-    };
-    
-    auto it = state_symbols.find(data->state);
-    if (it != state_symbols.end()) {
-      state_text = it->second;
-    } else if (!data->state.empty()) {
-      state_text = data->state;
-    } else {
-      state_text = "";
-    }
-    
-    lv_label_set_text(title_label, title_text.c_str());
-    lv_label_set_text(artist_label, artist_text.c_str());
-    lv_label_set_text(state_label, state_text.c_str());
-    
-    if (progress_bar != nullptr && data->duration > 0) {
-      lv_obj_clear_flag(progress_bar, LV_OBJ_FLAG_HIDDEN);
-      
-      int progress = (data->position * 100) / data->duration;
-      if (progress < 0) progress = 0;
-      if (progress > 100) progress = 100;
-      
-      lv_bar_set_value(progress_bar, progress, LV_ANIM_OFF);
-    } else if (progress_bar != nullptr) {
-      lv_obj_add_flag(progress_bar, LV_OBJ_FLAG_HIDDEN);
-    }
-    
-    if (metadata_container != nullptr) {
-      lv_obj_invalidate(metadata_container);
-    }
+static std::string title_text() {
+  const std::string title = nowPlaying.title();
+  if (title.empty()) {
+    return "No media playing";
   }
-  
-  delete data;
-  lv_timer_del(timer);
+  return add_marquee_gap(replace_bullet_chars(title));
 }
 
-void update_appleTV_metadata(const std::string& title, const std::string& artist, 
-                             const std::string& album, const std::string& state,
-                             int duration, int position) {
-  omote_log_d("Apple TV metadata update: title='%s', artist='%s', album='%s', state='%s'\r\n", 
-             title.c_str(), artist.c_str(), album.c_str(), state.c_str());
-  
-  MetadataUpdateData* data = new MetadataUpdateData();
-  data->title = title;
-  data->artist = artist;
-  data->album = album;
-  data->state = state;
-  data->duration = duration;
-  data->position = position;
-  
-  lv_timer_t* timer = lv_timer_create(metadata_update_task_cb, 1, data);
-  lv_timer_set_repeat_count(timer, 1);
+static std::string artist_text() {
+  const std::string artist = nowPlaying.artist();
+  if (artist.empty()) {
+    return "";
+  }
+  std::string text = replace_bullet_chars(artist);
+  const std::string album = nowPlaying.album();
+  if (!album.empty()) {
+    text += " • " + replace_bullet_chars(album);
+  }
+  return add_marquee_gap(text);
+}
+
+static const char* state_text() {
+  switch (nowPlaying.state()) {
+    case HubNowPlaying::State::PLAYING: return LV_SYMBOL_PLAY " Playing";
+    case HubNowPlaying::State::PAUSED:  return LV_SYMBOL_PAUSE " Paused";
+    case HubNowPlaying::State::STOPPED: return LV_SYMBOL_STOP " Stopped";
+    case HubNowPlaying::State::LOADING: return "Loading";
+    case HubNowPlaying::State::SEEKING: return "Seeking";
+    case HubNowPlaying::State::NONE:    return "";
+  }
+  return "";
+}
+
+// Setting a scrolling label's text restarts its scroll, so leave unchanged text alone.
+static void set_label_text_if_changed(lv_obj_t* label, const std::string& text) {
+  if (text != lv_label_get_text(label)) {
+    lv_label_set_text(label, text.c_str());
+  }
+}
+
+static void render_now_playing() {
+  const bool tabIsBuilt = metadata_container != nullptr;
+  if (!tabIsBuilt) {
+    return;
+  }
+
+  set_label_text_if_changed(title_label, title_text());
+  set_label_text_if_changed(artist_label, artist_text());
+  set_label_text_if_changed(state_label, state_text());
+
+  if (nowPlaying.hasProgress()) {
+    lv_obj_clear_flag(progress_bar, LV_OBJ_FLAG_HIDDEN);
+    lv_bar_set_value(progress_bar, nowPlaying.progressPercent(), LV_ANIM_OFF);
+  } else {
+    lv_obj_add_flag(progress_bar, LV_OBJ_FLAG_HIDDEN);
+  }
+}
+
+void show_appleTV_now_playing(const omote_DeviceState& snapshot) {
+  nowPlaying.observe(snapshot);
+  render_now_playing();
 }
 
 void notify_tab_before_delete_appleTV(void) {

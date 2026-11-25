@@ -58,7 +58,7 @@ static void startTicking() {
 
 void commandSent(const std::string& deviceId, omote_OmoteCommand command,
                  const omote_DeviceState* cached) {
-  if (command != omote_OmoteCommand_POWER_ON && command != omote_OmoteCommand_POWER_OFF) {
+  if (!opensSession(command)) {
     return;
   }
   const bool targetOn = command == omote_OmoteCommand_POWER_ON;
@@ -72,7 +72,7 @@ void commandSent(const std::string& deviceId, omote_OmoteCommand command,
 }
 
 void commandTransmitted(omote_OmoteCommand command) {
-  if (command != omote_OmoteCommand_POWER_ON && command != omote_OmoteCommand_POWER_OFF) {
+  if (!opensSession(command)) {
     return;
   }
   session.noteTransmitted(millis());

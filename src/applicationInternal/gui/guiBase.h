@@ -29,7 +29,10 @@ extern lv_style_t style_red_border;
 #endif
 
 // used by main.cpp
-void init_gui(void);
+void init_display(void);
+// The tabs draw nothing until the first gui_loop(), so setup builds them before the panel runs.
+void init_gui_tabs(void);
+void init_gui_bars(void);
 // used by main.cpp and sceneHandler.cpp
 void gui_loop(void);
 // used by guiMemoryOptimizer.cpp

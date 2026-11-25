@@ -215,6 +215,7 @@ void HubManager::syncState() {
 }
 
 bool HubManager::enqueueEvent(const omote_RemoteEvent& event) {
+  const bool becomesHeadAtWake = outboundQueue.isWakeWindow() && !hasPendingOutboundEvents();
   const unsigned long ttl = currentQueueTtlMs();
   const HubOutboundQueue::EnqueueResult result = outboundQueue.enqueue(event, millis(), ttl);
 
@@ -228,7 +229,22 @@ bool HubManager::enqueueEvent(const omote_RemoteEvent& event) {
   }
 
   omote_log_i("Queued event, ttl=%lu\n", ttl);
+  if (becomesHeadAtWake) {
+    headSendsAfterConnect = activeTransport->sendMessageAfterConnect(event);
+  }
   return true;
+}
+
+void HubManager::dropHeadIfSentAfterConnect() {
+  if (!headSendsAfterConnect) {
+    return;
+  }
+  headSendsAfterConnect = false;
+  if (!activeTransport->sentAfterConnect()) {
+    return;
+  }
+  noteTransmitted(outboundQueue.peek()->event);
+  outboundQueue.pop();
 }
 
 bool HubManager::hasPendingOutboundEvents() const {
@@ -256,6 +272,7 @@ unsigned long HubManager::currentQueueTtlMs() const {
 
 void HubManager::flushQueue() {
   outboundQueue.finishWakeWindow();
+  dropHeadIfSentAfterConnect();
 
   uint8_t flushed = 0;
   while (outboundQueue.hasPendingEvents()) {
@@ -284,6 +301,7 @@ void HubManager::flushQueue() {
 
 void HubManager::clearQueue() {
   outboundQueue.clearEvents();
+  headSendsAfterConnect = false;
 }
 
 void HubManager::setMessageHandler(std::function<void(const omote_CommandResult&)> handler) {

@@ -20,6 +20,9 @@ public:
   size_t inboundBudget = 0;
   std::vector<omote_OmoteCommand> sentCommands;
   std::vector<omote_RemoteEvent> sentEvents;
+  bool acceptsSendAfterConnect = false;
+  bool sentTheEventAfterConnect = false;
+  std::vector<omote_OmoteCommand> toSendAfterConnect;
 
   bool init() override {
     initCalls++;
@@ -44,6 +47,18 @@ public:
 
   bool isReady() override {
     return ready;
+  }
+
+  bool sendMessageAfterConnect(const omote_RemoteEvent& event) override {
+    if (!acceptsSendAfterConnect) {
+      return false;
+    }
+    toSendAfterConnect.push_back(event.command);
+    return true;
+  }
+
+  bool sentAfterConnect() override {
+    return sentTheEventAfterConnect;
   }
 
   unsigned long wakeQueueTtlMs() const override {
@@ -355,6 +370,12 @@ void test_scene_sync_targets_map_to_priority_ordered_devices() {
   TEST_ASSERT_EQUAL_STRING("DENON_AVR", shield[1].c_str());
   TEST_ASSERT_EQUAL_STRING("LG_TV", shield[2].c_str());
 
+  std::vector<std::string> appleTV = Hub::hubSyncTargetsForScene("Apple TV");
+  TEST_ASSERT_EQUAL_UINT(3, appleTV.size());
+  TEST_ASSERT_EQUAL_STRING("APPLE_TV", appleTV[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("DENON_AVR", appleTV[1].c_str());
+  TEST_ASSERT_EQUAL_STRING("LG_TV", appleTV[2].c_str());
+
   std::vector<std::string> tv = Hub::hubSyncTargetsForScene("TV");
   TEST_ASSERT_EQUAL_UINT(1, tv.size());
   TEST_ASSERT_EQUAL_STRING("LG_TV", tv[0].c_str());
@@ -367,8 +388,9 @@ void test_scene_sync_targets_empty_for_non_hub_scenes() {
 }
 
 void test_scene_volume_device_is_the_device_its_volume_keys_drive() {
-  // Shield's primary sync target is the media device, but VOLUP/MUTE go to the AVR.
+  // A media scene's primary sync target is the player, but VOLUP/MUTE go to the AVR.
   TEST_ASSERT_EQUAL_STRING("DENON_AVR", Hub::hubVolumeDeviceForScene("Shield").c_str());
+  TEST_ASSERT_EQUAL_STRING("DENON_AVR", Hub::hubVolumeDeviceForScene("Apple TV").c_str());
   TEST_ASSERT_TRUE(Hub::hubVolumeDeviceForScene("TV").empty());
   TEST_ASSERT_TRUE(Hub::hubVolumeDeviceForScene("Off").empty());
 }
@@ -448,6 +470,109 @@ void test_a_full_queue_still_accepts_sends_once_the_link_has_been_ready() {
   TEST_ASSERT_TRUE(manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_SLEEP_TIMER_CANCEL)));
 }
 
+static FakeHubTransport* initWithTransportThatConnectsOnItsOwnTask() {
+  FakeHubTransport* transport = initWithFakeTransport();
+  transport->ready = false;
+  transport->acceptsSendAfterConnect = true;
+  return transport;
+}
+
+void test_the_first_event_queued_at_wake_is_passed_on_to_send_after_connect() {
+  HubManager& manager = HubManager::getInstance();
+  FakeHubTransport* transport = initWithTransportThatConnectsOnItsOwnTask();
+
+  manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_DOWN));
+  manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_UP));
+
+  TEST_ASSERT_EQUAL_UINT(1, transport->toSendAfterConnect.size());
+  TEST_ASSERT_EQUAL(omote_OmoteCommand_DOWN, transport->toSendAfterConnect[0]);
+}
+
+void test_an_event_sent_after_connect_is_not_sent_again() {
+  HubManager& manager = HubManager::getInstance();
+  FakeHubTransport* transport = initWithTransportThatConnectsOnItsOwnTask();
+  manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_DOWN));
+
+  transport->sentTheEventAfterConnect = true;
+  transport->ready = true;
+  manager.process();
+
+  TEST_ASSERT_EQUAL_UINT8(0, transport->sendAttempts);
+}
+
+void test_events_queued_behind_one_sent_after_connect_still_go_out() {
+  HubManager& manager = HubManager::getInstance();
+  FakeHubTransport* transport = initWithTransportThatConnectsOnItsOwnTask();
+  manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_DOWN));
+  manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_UP));
+
+  transport->sentTheEventAfterConnect = true;
+  transport->ready = true;
+  manager.process();
+
+  const omote_OmoteCommand expected[] = {omote_OmoteCommand_UP};
+  assertSent(transport, expected, 1);
+}
+
+void test_transmitted_callback_fires_once_for_an_event_sent_after_connect() {
+  transmitted.clear();
+  HubManager& manager = HubManager::getInstance();
+  FakeHubTransport* transport = initWithTransportThatConnectsOnItsOwnTask();
+  manager.setEventTransmittedCallback(recordTransmitted);
+  manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_DOWN));
+
+  transport->sentTheEventAfterConnect = true;
+  transport->ready = true;
+  manager.process();
+  manager.process();
+
+  TEST_ASSERT_EQUAL_UINT(1, transmitted.size());
+  TEST_ASSERT_EQUAL(omote_OmoteCommand_DOWN, transmitted[0]);
+  manager.setEventTransmittedCallback(NULL);
+}
+
+void test_an_event_not_sent_after_connect_goes_out_with_the_queue() {
+  HubManager& manager = HubManager::getInstance();
+  FakeHubTransport* transport = initWithTransportThatConnectsOnItsOwnTask();
+  manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_DOWN));
+
+  transport->ready = true;
+  manager.process();
+
+  const omote_OmoteCommand expected[] = {omote_OmoteCommand_DOWN};
+  assertSent(transport, expected, 1);
+}
+
+void test_an_event_the_transport_did_not_take_goes_out_with_the_queue() {
+  HubManager& manager = HubManager::getInstance();
+  FakeHubTransport* transport = initWithTransportThatConnectsOnItsOwnTask();
+  transport->acceptsSendAfterConnect = false;
+  manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_DOWN));
+
+  // What the transport sent on connect was some other event.
+  transport->sentTheEventAfterConnect = true;
+  transport->ready = true;
+  manager.process();
+
+  const omote_OmoteCommand expected[] = {omote_OmoteCommand_DOWN};
+  assertSent(transport, expected, 1);
+}
+
+void test_an_event_queued_after_the_wake_window_is_not_passed_on_to_send_after_connect() {
+  HubManager& manager = HubManager::getInstance();
+  FakeHubTransport* transport = initWithFakeTransport();
+  transport->acceptsSendAfterConnect = true;
+
+  // The first pass with a ready link closes the wake window.
+  transport->ready = true;
+  manager.process();
+
+  transport->ready = false;
+  manager.sendRemoteEvent(makeEvent(omote_OmoteCommand_DOWN));
+
+  TEST_ASSERT_TRUE(transport->toSendAfterConnect.empty());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_a_send_is_rejected_only_while_the_wake_window_is_open);
@@ -473,5 +598,12 @@ int main() {
   RUN_TEST(test_wake_queue_ttl_uses_transport_value);
   RUN_TEST(test_runtime_retry_uses_runtime_ttl_after_wake_window);
   RUN_TEST(test_process_defers_state_sync_while_backlog_remains_pending);
+  RUN_TEST(test_the_first_event_queued_at_wake_is_passed_on_to_send_after_connect);
+  RUN_TEST(test_an_event_sent_after_connect_is_not_sent_again);
+  RUN_TEST(test_events_queued_behind_one_sent_after_connect_still_go_out);
+  RUN_TEST(test_transmitted_callback_fires_once_for_an_event_sent_after_connect);
+  RUN_TEST(test_an_event_not_sent_after_connect_goes_out_with_the_queue);
+  RUN_TEST(test_an_event_the_transport_did_not_take_goes_out_with_the_queue);
+  RUN_TEST(test_an_event_queued_after_the_wake_window_is_not_passed_on_to_send_after_connect);
   return UNITY_END();
 }

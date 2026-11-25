@@ -1,4 +1,5 @@
 #include "websocket_hal_windows_linux.h"
+#include "mqtt_hal_windows_linux.h"
 #include "secrets.h"
 #include "lib/easywsclient/easywsclient.hpp"
 #include <iostream>
@@ -63,6 +64,15 @@ void reconnect_loop() {
     }
 }
 
+#if (ENABLE_WIFI_AND_MQTT == 1)
+// The simulator has no display wait to hide a connect behind: start WiFi here and let
+// init_websocket_HAL() open the socket as before.
+void start_wifi_and_websocket_in_background_HAL(const char* hub_url) {
+  (void)hub_url;
+  init_mqtt_HAL();
+}
+#endif
+
 void init_websocket_HAL(const char* hub_url) {
     hubUrl = hub_url;
     std::cout << "[WebSocket HAL] Initializing WebSocket connection to " << hub_url << std::endl;
@@ -118,6 +128,17 @@ bool publishWebSocketMessage_HAL(const uint8_t* data, size_t len) {
         std::cout << "[WebSocket HAL] Error sending message: " << e.what() << std::endl;
         return false;
     }
+}
+
+// The simulator connects on the main loop, so no other task could send the message.
+bool send_websocket_message_after_connect_HAL(const uint8_t* data, size_t len) {
+    (void)data;
+    (void)len;
+    return false;
+}
+
+bool websocket_message_was_sent_after_connect_HAL() {
+    return false;
 }
 
 void websocket_shutdown_HAL() {

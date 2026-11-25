@@ -285,6 +285,12 @@ void set_backlightBrightness(uint8_t aBacklightBrightness){
 void init_lvgl_hardware() {
   init_lvgl_HAL();
 };
+void start_display_panel() {
+  start_display_panel_HAL();
+}
+void turn_display_on() {
+  turn_display_on_HAL();
+}
 
 // --- WiFi / MQTT ------------------------------------------------------------
 #if (ENABLE_WIFI_AND_MQTT == 1)
@@ -357,6 +363,11 @@ void set_espnow_message_callback(void (*callback)(const uint8_t* data, size_t le
 
 #if (ENABLE_HUB_COMMUNICATION == 3)
 // WebSocket hardware presenter functions
+void start_hub_link_in_background() {
+  set_announceWiFiconnected_cb_HAL(&receiveWiFiConnected_cb);
+  start_wifi_and_websocket_in_background_HAL(get_websocket_hub_url_HAL());
+}
+
 void init_websocket(const char* hub_url) {
   init_websocket_HAL(hub_url);
 }
@@ -367,6 +378,14 @@ void websocket_loop() {
 
 bool publishWebSocketMessage(const uint8_t* data, size_t len) {
   return publishWebSocketMessage_HAL(data, len);
+}
+
+bool send_websocket_message_after_connect(const uint8_t* data, size_t len) {
+  return send_websocket_message_after_connect_HAL(data, len);
+}
+
+bool websocket_message_was_sent_after_connect() {
+  return websocket_message_was_sent_after_connect_HAL();
 }
 
 void websocket_shutdown() {
